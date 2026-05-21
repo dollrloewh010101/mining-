@@ -2,20 +2,21 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Master Blacksmith: Synchronized Multiplayer</title>
+    <title>Master Blacksmith: Synchronized Multiplayer Update</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #1a1a1c; color: #d7d7d8; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 10px; overflow: hidden; }
-       
+        body { background: #1a1a1c; color: #d7d7d8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 10px; overflow: hidden; }
+        
         #ui-bar { width: 750px; display: flex; flex-direction: column; background: #2b2b2e; border: 4px solid #444449; border-bottom: none; font-size: 0.70rem; font-weight: bold; }
         .ui-row { display: flex; flex-wrap: wrap; justify-content: space-around; padding: 6px 10px; gap: 5px; }
         .ui-row:first-child { border-bottom: 2px solid #1a1a1c; background: #222225; }
-       
-        canvas { background: #222225; border: 4px solid #444449; image-rendering: pixelated; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
-       
+        
+        /* Removed image-rendering: pixelated; to allow ultra-smooth text and graphics */
+        canvas { background: #222225; border: 4px solid #444449; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        
         /* Unified Menu Styling */
         .game-menu { position: absolute; top: 220px; left: 50%; transform: translate(-50%, -50%); background: #2b2b2e; border: 4px solid #444449; padding: 20px; display: none; width: 340px; z-index: 10; text-align: center; box-shadow: 0 0 0 4px #1a1a1c, 0 10px 30px rgba(0,0,0,0.8); }
-       
+        
         #forge-menu { width: 440px; border-color: #ffac30; }
         #sell-menu { border-color: #00e436; width: 480px; }
         #buy-menu { border-color: #29adff; }
@@ -23,11 +24,12 @@
         #miner-assoc-menu { border-color: #83769c; }
         #mine-selector-menu { border-color: #5f574f; }
         #system-menu { border-color: #C2C3C7; width: 280px; }
-       
+        #trade-menu { border-color: #29adff; width: 500px; }
+        
         /* Backpack Expanded for Paper Doll */
         #backpack-menu { border-color: #ab5236; width: 580px; }
         .backpack-layout { display: flex; gap: 15px; text-align: left; height: 280px; margin-bottom: 15px; }
-       
+        
         /* Paper Doll Equipment Layout */
         .equipment-panel { width: 220px; background: #222; border: 2px solid #5f574f; padding: 10px; display: flex; flex-direction: column; align-items: center; justify-content: space-around; position: relative; border-radius: 8px; }
         .doll-bg { position: absolute; width: 80px; height: 180px; background: #1a1a1c; border-radius: 40px; z-index: 0; opacity: 0.5; border: 2px dashed #444; }
@@ -46,15 +48,15 @@
         #complex-forge, #test-menu { width: 340px; border-color: #ffac30; }
         #forge-result { width: 340px; border-color: #00e436; z-index: 20; }
 
-        #result-icon-container { background: #111; border: 4px solid #444449; width: 128px; height: 128px; margin: 10px auto; display: flex; align-items: center; justify-content: center; image-rendering: pixelated; }
+        #result-icon-container { background: #111; border: 4px solid #444449; width: 128px; height: 128px; margin: 10px auto; display: flex; align-items: center; justify-content: center; }
 
         .inventory-item { background: #36363b; margin: 8px 0; padding: 10px; border: 2px solid #444449; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center; }
         .inventory-item:hover:not(.disabled-item) { border-color: #ffac30; background: #444449; transform: scale(1.02); }
         .disabled-item { opacity: 0.5; cursor: not-allowed; }
-       
+        
         #material-setup-list { max-height: 150px; overflow-y: auto; padding-right: 5px; }
-       
         .material-row { background: #36363b; margin: 6px 0; padding: 6px; border: 2px solid #444449; display: flex; justify-content: space-between; align-items: center; font-weight:bold; }
+        
         .btn-qty { background: #5f574f; color: white; border: 2px solid #111; padding: 2px 8px; font-weight: bold; cursor: pointer; font-size: 1rem; }
         .btn-qty:hover { background: #ffac30; color: #000; }
 
@@ -64,30 +66,30 @@
         .q-epic { background: #83769c; color: #fff; }
         .q-legendary { background: #38b764; color: #fff; box-shadow: 0 0 8px #38b764; }
         .q-masterwork { background: #ffa300; color: #000; box-shadow: 0 0 8px #ffec27; }
-       
+        
         .bar-container { width: 220px; height: 24px; background: #111; border: 3px solid #d7d7d8; margin: 10px auto; position: relative; overflow: hidden; }
         #heat-fill { width: 0%; height: 100%; background: linear-gradient(to right, #ff004d, #ffa300); }
         #quench-fill { width: 0%; height: 100%; background: #29adff; box-shadow: 0 0 10px #29adff; }
         .target-line { position: absolute; left: 70%; width: 20%; height: 100%; border: 2px solid #fff; opacity: 0.4; z-index: 1; }
-       
+        
         .hammer-bar { width: 220px; height: 14px; background: #111; border: 3px solid #d7d7d8; margin: 5px auto; position: relative; }
         .cursor { width: 8px; height: 100%; background: #fff; position: absolute; box-shadow: 0 0 5px #fff; }
         .target-zone { width: 35px; height: 100%; background: #ffac30; position: absolute; left: 90px; }
-       
+        
         .gold-v { color: #ffec27; text-shadow: 1px 1px #000; }
         .xp-text { color: #29adff; font-weight: normal; font-size: 0.7rem; }
         .controls-hint { color: #666; font-size: 0.7rem; margin-top: 10px; font-style: italic; }
         button { font-family: inherit; font-weight: bold; border: 4px solid #111; padding: 8px; cursor: pointer; transition: 0.1s; width: 100%; margin-top: 5px; }
         button:active { transform: scale(0.95); }
-       
+        
         .forge-setup-container { display: flex; gap: 15px; align-items: center; justify-content: center; }
-        #crucibleCanvas { background: #222; border: 3px solid #111; border-radius: 8px; image-rendering: pixelated; box-shadow: inset 0 0 10px #000; }
-       
+        #crucibleCanvas { background: #222; border: 3px solid #111; border-radius: 8px; box-shadow: inset 0 0 10px #000; }
+        
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #1a1a1c; }
         ::-webkit-scrollbar-thumb { background: #444449; }
         ::-webkit-scrollbar-thumb:hover { background: #ffac30; }
-       
+        
         .sys-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 5px; }
     </style>
 </head>
@@ -144,9 +146,38 @@
         <button onclick="closeMenus()" style="background:#5f574f; color:white;">CLOSE BACKPACK</button>
     </div>
 
+    <div id="trade-menu" class="game-menu">
+        <h3 style="color:#29adff; margin-top:0;">🤝 PLAYER TRADE</h3>
+        <div style="display:flex; gap:10px; height:180px;">
+            <div style="flex:1; background:#222; border:2px solid #5f574f; padding:5px; display:flex; flex-direction:column;">
+                <div style="color:#00e436; font-size:0.75rem; font-weight:bold;">YOUR OFFER</div>
+                <div style="margin:5px 0;">
+                    <button onclick="modifyTradeCoins(-100)" style="width:auto; padding:2px 6px; display:inline; margin:0;">-100</button>
+                    <span class="gold-v" id="trade-my-coins-v" style="display:inline-block; width:50px; text-align:center;">0 C</span>
+                    <button onclick="modifyTradeCoins(100)" style="width:auto; padding:2px 6px; display:inline; margin:0;">+100</button>
+                </div>
+                <div id="trade-my-items" style="flex:1; overflow-y:auto; border-top:1px solid #444; text-align:left;"></div>
+            </div>
+            <div style="flex:1; background:#222; border:2px solid #5f574f; padding:5px; display:flex; flex-direction:column;">
+                <div style="color:#29adff; font-size:0.75rem; font-weight:bold;">THEIR OFFER</div>
+                <div style="margin:5px 0; padding:4px 0;">
+                    <span class="gold-v" id="trade-their-coins-v" style="display:inline-block; width:50px; text-align:center;">0 C</span>
+                </div>
+                <div id="trade-their-items" style="flex:1; overflow-y:auto; border-top:1px solid #444; text-align:left;"></div>
+            </div>
+        </div>
+        <div style="font-size:0.65rem; color:#aaa; margin-top:10px; text-align:left; font-weight:bold;">YOUR BACKPACK (CLICK TO OFFER):</div>
+        <div id="trade-inventory" style="height:90px; overflow-y:auto; background:#111; padding:5px; border:2px solid #444; text-align:left; display:flex; flex-wrap:wrap; gap:5px; align-content:flex-start;"></div>
+        
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <button id="btn-trade-ready" onclick="toggleTradeReady()" style="background:#ffa300; color:black; flex:1; margin:0;">CLICK TO READY</button>
+            <button onclick="closeMenus()" style="background:#ff004d; color:white; flex:1; margin:0;">CANCEL</button>
+        </div>
+    </div>
+
     <div id="system-menu" class="game-menu">
         <h3 style="color:#C2C3C7; margin-top:0;">⚙️ SYSTEM MENU</h3>
-       
+        
         <div style="font-size: 0.65rem; color:#888; text-align:left; margin: 10px 0 5px 0; font-weight: bold;">P2P MULTIPLAYER (NO SERVER)</div>
         <div class="sys-grid">
             <button onclick="hostMultiplayer()" style="background:#83769c; color:white; font-size:0.7rem; padding:5px;">📡 HOST GAME</button>
@@ -208,10 +239,12 @@
     <div id="buy-menu" class="game-menu"><h3 style="color:#29adff; margin-top:0;">TOOL SHOP</h3><div id="buy-list" style="max-height: 220px; overflow-y: auto; margin-bottom:10px;"></div><button onclick="closeMenus()" style="background:#5f574f; color:white;">LEAVE</button></div>
     <div id="miner-assoc-menu" class="game-menu"><h3 style="color:#83769c; margin-top:0;">MINER ASSOCIATION</h3><p style="font-size:0.75rem; color:#aaa;">Prove your worth to access deeper caves.</p><div id="assoc-details" style="background:#111; padding:15px; border:2px solid #5f574f; margin-bottom:15px;"></div><button onclick="closeMenus()" style="background:#5f574f; color:white;">LEAVE</button></div>
     <div id="mine-selector-menu" class="game-menu"><h3 style="color:#c2c3c7; margin-top:0;">CAVE ENTRANCE</h3><p style="font-size:0.75rem; color:#aaa;">Select your destination:</p><div id="mine-list" style="margin-bottom:10px;"></div><button onclick="closeMenus(); game.player.y = 40;" style="background:#5f574f; color:white;">STEP BACK</button></div>
+    
     <div id="complex-forge" class="game-menu"><h3 id="forge-title" style="margin:0;">HEATING</h3><p id="forge-step-desc" style="font-size: 0.7rem; color: #aaa;">Pump bellows!</p><div class="work-zone"><div id="heat-ui"><div class="bar-container"><div class="target-line"></div><div id="heat-fill"></div></div><p>Tap <b style="color:#00e436">E</b> to Heat</p></div><div id="hammer-ui" style="display:none;"><div class="hammer-bar"><div id="hammer-target" class="target-zone"></div><div id="hammer-cursor" class="cursor"></div></div><p>Hit <b style="color:#00e436">SPACE</b> (<span id="hit-count">0</span>/3)</p></div><div id="quench-ui" style="display:none;"><div class="bar-container"><div id="quench-fill"></div></div><p>Hold <b style="color:#00e436">SPACE</b> to Quench</p></div></div></div>
     <div id="test-menu" class="game-menu"><h3 style="color:#83769c; margin:0;">MINING TEST</h3><p style="font-size: 0.7rem; color: #aaa;">Hit SPACE when centered to crack the boulder!</p><div class="work-zone"><div class="hammer-bar"><div id="test-target" class="target-zone"></div><div id="test-cursor" class="cursor"></div></div><p>Hits Required: (<span id="test-hit-count">0</span>/3)</p></div></div>
     <div id="forge-result" class="game-menu"><h3 id="result-title" style="color:#00e436; margin-top:0;">SUCCESS!</h3><div id="result-icon-container"></div><div id="result-details" style="background:#111; padding: 10px; margin: 10px 0; border: 2px solid #5f574f;"></div><button onclick="closeMenus()" style="background:#5f574f; color:white;">AWESOME</button></div>
-    <div class="controls-hint">WASD:Move | E:Interact/Mine | SPACE:Action | B:Backpack</div>
+    
+    <div class="controls-hint">WASD:Move | E:Interact/Mine | SPACE:Action | B:Backpack | T:Trade Player | M:Map Overlay</div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -231,61 +264,76 @@
         const licenseData = [ { id: 1, name: "Surface Tunnels", reqLvl: 1, cost: 0, ores: ['coal', 'tin', 'copper', 'iron'], color: C.l_gray }, { id: 2, name: "Silver Caverns", reqLvl: 5, cost: 1500, ores: ['iron', 'silver', 'gold', 'coal'], color: C.silver }, { id: 3, name: "The Deep Core", reqLvl: 12, cost: 8000, ores: ['mithril', 'adamant', 'gold', 'silver'], color: C.adamant } ];
 
         let game = {
-            tick: 0, map: 'OUTDOOR', currentArea: 1, coins: 0,
-            stamina: 100, maxStamina: 100,
+            tick: 0, map: 'OUTDOOR', currentArea: 1, coins: 0, 
+            stamina: 100, maxStamina: 100, 
             inv: { coal: 0, tin: 0, copper: 0, iron: 0, silver: 0, gold: 0, mithril: 0, adamant: 0 },
-            finishedItems: [], equipment: { head: null, neck: null, body: null, hand: null },
+            finishedItems: [], equipment: { head: null, neck: null, body: null, hand: null }, 
             pick: 'Stone', power: 1, miningLvl: 1, miningXp: 0, forgeLvl: 1, forgeXp: 0, licenseLvl: 1,
             floatingTexts: [],
             player: { x: 280, y: 100, w: 20, h: 26, speed: 4, dir: 1, walking: false, mineAnim: 0 },
-            nodes: [], particles: [], forgePhase: '', testPhase: false, isMenuOpen: false,
+            nodes: { 1: [], 2: [], 3: [] }, particles: [], forgePhase: '', testPhase: false, isMenuOpen: false,
             score: 0, heat: 0, heatTimer: 0, hammerHits: 0, hammerCursor: 0, hammerDir: 5, quenchProgress: 0, testHits: 0,
             popularity: 100, marketItem: null, marketNpc: null, marketTimer: 0,
-            isHost: true // Determines who controls ore respawns
+            isHost: true, showMap: false,
+            
+            tradeState: { active: false, myOffer: { coins: 0, items: [] }, theirOffer: { coins: 0, items: [] }, myReady: false, theirReady: false }
         };
 
         const ORES = ['coal', 'tin', 'copper', 'iron', 'silver', 'gold', 'mithril', 'adamant'];
         let currentForgeMix = {}; ORES.forEach(o => currentForgeMix[o] = 0);
 
-        // --- MULTIPLAYER P2P SYSTEM ---
         let peer = null;
         let peerConn = null;
         let otherPlayer = null;
 
         function hostMultiplayer() {
-            game.isHost = true;
-            document.getElementById('mp-status').innerHTML = "Generating Server ID...";
-            peer = new Peer();
-            peer.on('open', (id) => {
-                document.getElementById('mp-status').innerHTML = `Hosting! Share this ID with a friend:<br><b style="color:#00e436; font-size:0.8rem; user-select:all;">${id}</b>`;
-            });
-            peer.on('connection', (conn) => {
-                peerConn = conn;
-                setupConnection();
-            });
+            try {
+                game.isHost = true;
+                document.getElementById('mp-status').innerHTML = "Generating Server ID...";
+                peer = new Peer(); 
+                peer.on('open', (id) => {
+                    document.getElementById('mp-status').innerHTML = `Hosting! Share this ID with a friend:<br><b style="color:#00e436; font-size:0.8rem; user-select:all;">${id}</b>`;
+                });
+                peer.on('connection', (conn) => {
+                    peerConn = conn;
+                    setupConnection();
+                });
+                peer.on('error', (err) => {
+                    document.getElementById('mp-status').innerHTML = `<span style='color:#ff004d'>Error: ${err.type}</span>`;
+                });
+            } catch(e) {
+                console.error("PeerJS not loaded or blocked:", e);
+                alert("Multiplayer requires internet access and PeerJS to be unblocked.");
+            }
         }
 
         function joinMultiplayer() {
-            game.isHost = false;
-            let targetId = prompt("Enter the Host's ID:");
-            if(!targetId) return;
-            document.getElementById('mp-status').innerHTML = "Connecting to Host...";
-            peer = new Peer();
-            peer.on('open', () => {
-                peerConn = peer.connect(targetId);
-                peerConn.on('open', () => {
-                    setupConnection();
+            try {
+                game.isHost = false;
+                let targetId = prompt("Enter the Host's ID:");
+                if(!targetId) return;
+                document.getElementById('mp-status').innerHTML = "Connecting to Host...";
+                peer = new Peer();
+                peer.on('open', () => {
+                    peerConn = peer.connect(targetId);
+                    peerConn.on('open', () => {
+                        setupConnection();
+                    });
+                    peerConn.on('error', (err) => {
+                        document.getElementById('mp-status').innerHTML = `<span style='color:#ff004d'>Connection Failed</span>`;
+                    });
                 });
-            });
+            } catch(e) {
+                console.error("PeerJS Error:", e);
+            }
         }
 
         function setupConnection() {
             document.getElementById('mp-status').innerHTML = "<span style='color:#00e436'>Connected! Player 2 is in your world.</span>";
             addFloatingText(game.player.x, game.player.y - 20, "LINK ESTABLISHED!", C.green);
-           
+            
             if (game.isHost) {
-                // Host sends the initial state of the world to the joining client
-                peerConn.send({ type: 'world_sync', nodes: game.nodes, currentArea: game.currentArea, map: game.map });
+                peerConn.send({ type: 'world_sync', nodes: game.nodes });
             }
 
             peerConn.on('data', (data) => {
@@ -293,49 +341,179 @@
                     otherPlayer = data.player;
                 } else if (data.type === 'world_sync') {
                     game.nodes = data.nodes;
-                    game.currentArea = data.currentArea;
                 } else if (data.type === 'mine_node') {
-                    let n = game.nodes[data.nodeIndex];
-                    if (n) {
-                        let wasActive = n.active;
-                        n.hp -= data.damage;
-                        n.shake = 8;
-                        let pCol = C.black; if(n.type==='iron') pCol = C.orange; else if(n.type==='gold') pCol = C.yellow; else if(n.type==='copper') pCol = C.copper; else if(n.type==='mithril') pCol = C.mithril; else if(n.type==='tin') pCol = C.tin; else if(n.type==='silver') pCol = C.silver; else if(n.type==='adamant') pCol = C.adamant;
-                        createParticles(n.x+16, n.y+16, pCol, 6);
-                       
-                        if (n.hp <= 0 && wasActive) {
-                            n.active = false;
-                            if (game.isHost) {
-                                // Only the host handles the respawn timer to prevent desync
-                                setTimeout(() => {
-                                    let attempts = 0; let nx=0, ny=0;
-                                    while(attempts < 50) {
-                                        nx = 50 + Math.random() * 500; ny = 50 + Math.random() * 250;
-                                        let tooClose = game.nodes.some(other => other.active && dist(nx, ny, other.x, other.y) < 60);
-                                        if(ny < 330 && !tooClose) break;
-                                        attempts++;
-                                    }
-                                    n.x = nx; n.y = ny; n.active = true; n.hp = n.mhp;
-                                    peerConn.send({ type: 'respawn_node', nodeIndex: data.nodeIndex, x: nx, y: ny });
-                                }, 5000);
+                    let nList = game.nodes[data.area];
+                    if (nList) {
+                        let n = nList[data.nodeIndex];
+                        if (n) {
+                            let wasActive = n.active;
+                            n.hp -= data.damage;
+                            n.shake = 8;
+                            let pCol = C.black; if(n.type==='iron') pCol = C.orange; else if(n.type==='gold') pCol = C.yellow; else if(n.type==='copper') pCol = C.copper; else if(n.type==='mithril') pCol = C.mithril; else if(n.type==='tin') pCol = C.tin; else if(n.type==='silver') pCol = C.silver; else if(n.type==='adamant') pCol = C.adamant;
+                            
+                            if (game.map === 'CAVE' && game.currentArea === data.area) {
+                                createParticles(n.x+16, n.y+16, pCol, 6);
+                            }
+                            
+                            if (n.hp <= 0 && wasActive) {
+                                n.active = false;
+                                if (game.isHost) {
+                                    setTimeout(() => {
+                                        let attempts = 0; let nx=0, ny=0;
+                                        while(attempts < 50) { 
+                                            nx = 50 + Math.random() * 500; ny = 50 + Math.random() * 250; 
+                                            let tooClose = nList.some(other => other.active && dist(nx, ny, other.x, other.y) < 60); 
+                                            if(ny < 330 && !tooClose) break; 
+                                            attempts++; 
+                                        } 
+                                        
+                                        let roll = Math.random(); let nodeType = 'coal';
+                                        if (data.area === 1) { if(roll > 0.95) nodeType = 'iron'; else if(roll > 0.75) nodeType = 'copper'; else if(roll > 0.50) nodeType = 'tin'; else nodeType = 'coal'; } 
+                                        else if (data.area === 2) { if(roll > 0.80) nodeType = 'gold'; else if(roll > 0.50) nodeType = 'silver'; else if(roll > 0.10) nodeType = 'iron'; else nodeType = 'coal'; } 
+                                        else if (data.area === 3) { if(roll > 0.70) nodeType = 'adamant'; else if(roll > 0.30) nodeType = 'mithril'; else if(roll > 0.10) nodeType = 'gold'; else nodeType = 'silver'; }
+
+                                        n.x = nx; n.y = ny; n.type = nodeType; n.hp = 5; n.mhp = 5; n.active = true; 
+                                        peerConn.send({ type: 'respawn_node', area: data.area, nodeIndex: data.nodeIndex, x: nx, y: ny, nodeType: nodeType, mhp: 5 });
+                                    }, 5000);
+                                }
                             }
                         }
                     }
                 } else if (data.type === 'respawn_node') {
-                    let n = game.nodes[data.nodeIndex];
-                    if(n) {
-                        n.x = data.x; n.y = data.y; n.hp = n.mhp; n.active = true;
+                    let nList = game.nodes[data.area];
+                    if(nList && nList[data.nodeIndex]) { 
+                        let n = nList[data.nodeIndex];
+                        n.x = data.x; n.y = data.y; n.type = data.nodeType; n.hp = data.mhp; n.mhp = data.mhp; n.active = true; 
                     }
-                } else if (data.type === 'request_cave' && game.isHost) {
-                    // Client wants to load a new cave. Host generates it and sends it to everyone.
-                    game.currentArea = data.area;
-                    spawnNodes(game.currentArea);
-                    peerConn.send({ type: 'world_sync', nodes: game.nodes, currentArea: game.currentArea });
+                } 
+                else if (data.type === 'trade_open') {
+                    if(!game.isMenuOpen && !game.forgePhase && !game.testPhase) {
+                        openTradeMenu();
+                    } else {
+                        peerConn.send({ type: 'trade_cancel' }); 
+                    }
                 }
+                else if (data.type === 'trade_update') {
+                    if(game.tradeState && game.tradeState.active) {
+                        game.tradeState.theirOffer = data.offer;
+                        game.tradeState.myReady = false;
+                        game.tradeState.theirReady = false;
+                        renderTradeMenu();
+                    }
+                }
+                else if (data.type === 'trade_ready') {
+                    if(game.tradeState && game.tradeState.active) {
+                        game.tradeState.theirReady = data.state;
+                        renderTradeMenu();
+                        checkTradeComplete();
+                    }
+                }
+                else if (data.type === 'trade_cancel') {
+                    if(game.tradeState && game.tradeState.active) {
+                        game.finishedItems.push(...game.tradeState.myOffer.items);
+                        game.tradeState.myOffer.items = [];
+                        game.tradeState.active = false;
+                        closeMenus();
+                        addFloatingText(game.player.x, game.player.y - 10, "TRADE CANCELLED", C.red);
+                    }
+                }
+            });
+            
+            peerConn.on('close', () => {
+                otherPlayer = null;
+                document.getElementById('mp-status').innerHTML = "<span style='color:#ff004d'>Disconnected from Player 2</span>";
             });
         }
 
-        // --- SERVERLESS LOCAL SAVE SYSTEM ---
+        function openTradeMenu() {
+            game.isMenuOpen = true;
+            game.tradeState = { active: true, myOffer: { coins: 0, items: [] }, theirOffer: { coins: 0, items: [] }, myReady: false, theirReady: false };
+            document.getElementById('trade-menu').style.display = 'block';
+            renderTradeMenu();
+        }
+
+        function renderTradeMenu() {
+            document.getElementById('trade-my-coins-v').innerText = game.tradeState.myOffer.coins + ' C';
+            document.getElementById('trade-their-coins-v').innerText = game.tradeState.theirOffer.coins + ' C';
+
+            const myItemsList = document.getElementById('trade-my-items');
+            myItemsList.innerHTML = '';
+            game.tradeState.myOffer.items.forEach((item, idx) => {
+                let div = document.createElement('div'); div.className = 'inventory-item'; div.style.padding = '4px 6px'; div.style.fontSize = '0.6rem'; div.style.margin = '2px 0'; div.style.display = 'flex'; div.style.justifyContent = 'space-between';
+                div.innerHTML = `<span><b>${item.name}</b> <span class="q-tag q-${item.quality.toLowerCase()}" style="font-size:0.5rem;">${item.quality}</span></span><span style="color:#ff004d; font-weight:bold; cursor:pointer;">[X]</span>`;
+                div.onclick = () => removeFromTrade(idx);
+                myItemsList.appendChild(div);
+            });
+
+            const theirItemsList = document.getElementById('trade-their-items');
+            theirItemsList.innerHTML = '';
+            game.tradeState.theirOffer.items.forEach(item => {
+                let div = document.createElement('div'); div.className = 'inventory-item'; div.style.padding = '4px 6px'; div.style.fontSize = '0.6rem'; div.style.margin = '2px 0';
+                div.innerHTML = `<span><b>${item.name}</b> <span class="q-tag q-${item.quality.toLowerCase()}" style="font-size:0.5rem;">${item.quality}</span></span>`;
+                theirItemsList.appendChild(div);
+            });
+
+            const invList = document.getElementById('trade-inventory');
+            invList.innerHTML = '';
+            game.finishedItems.forEach((item, idx) => {
+                let div = document.createElement('div'); div.className = 'inventory-item'; div.style.padding = '4px 6px'; div.style.fontSize = '0.6rem'; div.style.margin = '2px'; div.style.display = 'inline-block'; div.style.width = '45%';
+                div.innerHTML = `<b>${item.name}</b> <span class="q-tag q-${item.quality.toLowerCase()}" style="font-size:0.5rem; padding:1px 2px;">${item.quality}</span>`;
+                div.onclick = () => addToTrade(idx);
+                invList.appendChild(div);
+            });
+
+            const readyBtn = document.getElementById('btn-trade-ready');
+            if (game.tradeState.myReady) { readyBtn.innerText = "WAITING FOR OTHER..."; readyBtn.style.background = "#00e436"; } 
+            else { readyBtn.innerText = "CLICK TO READY"; readyBtn.style.background = "#ffa300"; }
+        }
+
+        function addToTrade(index) {
+            let item = game.finishedItems.splice(index, 1)[0];
+            game.tradeState.myOffer.items.push(item);
+            game.tradeState.myReady = false; game.tradeState.theirReady = false;
+            if(peerConn && peerConn.open) peerConn.send({ type: 'trade_update', offer: game.tradeState.myOffer });
+            renderTradeMenu();
+        }
+
+        function removeFromTrade(index) {
+            let item = game.tradeState.myOffer.items.splice(index, 1)[0];
+            game.finishedItems.push(item);
+            game.tradeState.myReady = false; game.tradeState.theirReady = false;
+            if(peerConn && peerConn.open) peerConn.send({ type: 'trade_update', offer: game.tradeState.myOffer });
+            renderTradeMenu();
+        }
+
+        function modifyTradeCoins(amount) {
+            let newAmount = game.tradeState.myOffer.coins + amount;
+            if (newAmount < 0) newAmount = 0; if (newAmount > game.coins) newAmount = game.coins; 
+            game.tradeState.myOffer.coins = newAmount;
+            game.tradeState.myReady = false; game.tradeState.theirReady = false;
+            if(peerConn && peerConn.open) peerConn.send({ type: 'trade_update', offer: game.tradeState.myOffer });
+            renderTradeMenu();
+        }
+
+        function toggleTradeReady() {
+            game.tradeState.myReady = !game.tradeState.myReady;
+            if(peerConn && peerConn.open) peerConn.send({ type: 'trade_ready', state: game.tradeState.myReady });
+            renderTradeMenu();
+            checkTradeComplete();
+        }
+
+        function checkTradeComplete() {
+            if (game.tradeState.myReady && game.tradeState.theirReady) {
+                game.coins -= game.tradeState.myOffer.coins;
+                game.coins += game.tradeState.theirOffer.coins;
+                game.finishedItems.push(...game.tradeState.theirOffer.items);
+                game.tradeState.myOffer.items = []; 
+                game.tradeState.active = false;
+
+                createParticles(game.player.x, game.player.y, C.green, 20);
+                addFloatingText(game.player.x, game.player.y - 10, "TRADE COMPLETE!", C.green);
+                
+                closeMenus(); saveGame();
+            }
+        }
+
         const SAVE_KEY = 'masterBlacksmith_SaveData_V2';
 
         function assembleSavePackage() {
@@ -351,32 +529,45 @@
         }
 
         function unpackSavePackage(data) {
-            game.coins = data.coins || 0; game.stamina = data.stamina || 100;
+            game.coins = data.coins || 0; 
+            game.stamina = data.stamina || 100;
             game.inv = data.inv || { coal: 0, tin: 0, copper: 0, iron: 0, silver: 0, gold: 0, mithril: 0, adamant: 0 };
             game.finishedItems = data.finishedItems || [];
             game.equipment = data.equipment || { head: null, neck: null, body: null, hand: null };
-            game.pick = data.pick || 'Stone'; game.power = data.power || 1;
-            game.miningLvl = data.miningLvl || 1; game.miningXp = data.miningXp || 0;
-            game.forgeLvl = data.forgeLvl || 1; game.forgeXp = data.forgeXp || 0;
-            game.licenseLvl = data.licenseLvl || 1; game.popularity = data.popularity || 100;
-            game.marketItem = data.marketItem || null;
+            game.pick = data.pick || 'Stone'; 
+            game.power = data.power || 1;
+            game.miningLvl = data.miningLvl || 1; 
+            game.miningXp = data.miningXp || 0;
+            game.forgeLvl = data.forgeLvl || 1; 
+            game.forgeXp = data.forgeXp || 0;
+            game.licenseLvl = data.licenseLvl || 1; 
+            game.popularity = data.popularity || 100;
+            game.marketItem = data.marketItem || null; 
             game.marketNpc = data.marketNpc || null;
             game.marketTimer = data.marketTimer || 0;
         }
 
         function saveGame() {
-            const saveData = assembleSavePackage();
-            localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
-            addFloatingText(game.player.x + 10, game.player.y - 10, "LOCAL SAVE OK", C.green);
+            try {
+                const saveData = assembleSavePackage();
+                localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+                addFloatingText(game.player.x + 10, game.player.y - 10, "LOCAL SAVE OK", C.green);
+            } catch(e) {
+                console.error("Save failed (localStorage disabled?)", e);
+            }
         }
 
         function loadGame() {
-            const savedStr = localStorage.getItem(SAVE_KEY);
-            if (savedStr) {
-                try {
+            try {
+                const savedStr = localStorage.getItem(SAVE_KEY);
+                if (savedStr) {
                     unpackSavePackage(JSON.parse(savedStr));
-                    addFloatingText(game.player.x + 10, game.player.y - 10, "LOCAL LOAD OK", C.blue); closeMenus();
-                } catch (e) { addFloatingText(game.player.x + 10, game.player.y - 10, "LOAD FAILED!", C.red); }
+                    addFloatingText(game.player.x + 10, game.player.y - 10, "LOCAL LOAD OK", C.blue); 
+                    closeMenus();
+                }
+            } catch (e) {
+                console.error("Load failed:", e);
+                addFloatingText(game.player.x + 10, game.player.y - 10, "LOAD FAILED!", C.red); 
             }
         }
 
@@ -392,129 +583,205 @@
         }
 
         function importTextCode() {
-            const code = prompt("Paste your save string here:"); if (!code) return;
+            const code = prompt("Paste your save string here:"); 
+            if (!code) return;
             try {
                 const cleanCode = code.includes('#') ? code.split('#')[1] : code;
                 const jsonStr = decodeURIComponent(escape(atob(cleanCode)));
                 unpackSavePackage(JSON.parse(jsonStr));
-                addFloatingText(game.player.x + 10, game.player.y - 10, "CODE IMPORTED!", C.green); closeMenus();
+                addFloatingText(game.player.x + 10, game.player.y - 10, "CODE IMPORTED!", C.green); 
+                closeMenus();
             } catch(e) { alert("❌ Invalid format."); }
         }
 
         function checkForUrlHashSave() {
             if (window.location.hash && window.location.hash.length > 2) {
                 try {
-                    const b64 = window.location.hash.substring(1); const jsonStr = decodeURIComponent(escape(atob(b64)));
+                    const b64 = window.location.hash.substring(1); 
+                    const jsonStr = decodeURIComponent(escape(atob(b64)));
                     const data = JSON.parse(jsonStr);
                     if (confirm("🔗 Found a cloud save link! Load it? (Overwrites local progress)")) {
-                        unpackSavePackage(data); addFloatingText(game.player.x + 10, game.player.y - 10, "CLOUD DATA LOADED!", C.green);
+                        unpackSavePackage(data); 
+                        addFloatingText(game.player.x + 10, game.player.y - 10, "CLOUD DATA LOADED!", C.green);
                     }
                     history.replaceState(null, null, ' ');
                 } catch(e) { console.error("Error decoding link parameters."); }
             }
         }
 
-        function wipeSave() { if (confirm("Are you sure you want to wipe save data?")) { localStorage.removeItem(SAVE_KEY); location.reload(); } }
-        function openSystemMenu() { game.isMenuOpen = true; document.getElementById('system-menu').style.display = 'block'; }
+        function wipeSave() { 
+            if (confirm("Are you sure you want to wipe save data?")) { 
+                try { localStorage.removeItem(SAVE_KEY); } catch(e){}
+                location.reload(); 
+            } 
+        }
 
-        window.onload = () => { loadGame(); checkForUrlHashSave(); spawnNodes(1); draw(); };
+        function openSystemMenu() { 
+            game.isMenuOpen = true; 
+            document.getElementById('system-menu').style.display = 'block'; 
+        }
+
+        window.onload = () => { 
+            try {
+                loadGame(); 
+                checkForUrlHashSave(); 
+                spawnNodes(1);
+                spawnNodes(2);
+                spawnNodes(3);
+                draw(); 
+            } catch(e) {
+                console.error("Game crashed on load:", e);
+                alert("Game encountered a fatal error on load. Check console.");
+            }
+        };
 
         function spawnNodes(areaId) {
-            game.nodes = []; const count = 7 + Math.floor(Math.random() * 5);
+            game.nodes[areaId] = []; 
+            const count = 7 + Math.floor(Math.random() * 5);
             for(let i=0; i<count; i++) {
                 let nodeType = 'coal'; let roll = Math.random();
-                if (areaId === 1) { if(roll > 0.95) nodeType = 'iron'; else if(roll > 0.75) nodeType = 'copper'; else if(roll > 0.50) nodeType = 'tin'; else nodeType = 'coal'; }
-                else if (areaId === 2) { if(roll > 0.80) nodeType = 'gold'; else if(roll > 0.50) nodeType = 'silver'; else if(roll > 0.10) nodeType = 'iron'; else nodeType = 'coal'; }
+                if (areaId === 1) { if(roll > 0.95) nodeType = 'iron'; else if(roll > 0.75) nodeType = 'copper'; else if(roll > 0.50) nodeType = 'tin'; else nodeType = 'coal'; } 
+                else if (areaId === 2) { if(roll > 0.80) nodeType = 'gold'; else if(roll > 0.50) nodeType = 'silver'; else if(roll > 0.10) nodeType = 'iron'; else nodeType = 'coal'; } 
                 else if (areaId === 3) { if(roll > 0.70) nodeType = 'adamant'; else if(roll > 0.30) nodeType = 'mithril'; else if(roll > 0.10) nodeType = 'gold'; else nodeType = 'silver'; }
 
                 let attempts = 0;
                 while(attempts < 50) {
                     let nx = 50 + Math.random() * 500; let ny = 50 + Math.random() * 250;
-                    let tooClose = game.nodes.some(n => dist(nx, ny, n.x, n.y) < 60);
-                    if(ny < 330 && !tooClose) { game.nodes.push({ x: nx, y: ny, type: nodeType, hp: 5, mhp: 5, active: true, shake: 0 }); break; } attempts++;
+                    let tooClose = game.nodes[areaId].some(n => dist(nx, ny, n.x, n.y) < 60);
+                    if(ny < 330 && !tooClose) { game.nodes[areaId].push({ x: nx, y: ny, type: nodeType, hp: 5, mhp: 5, active: true, shake: 0 }); break; } attempts++;
                 }
             }
         }
 
         const keys = {};
-        window.onkeydown = (e) => {
-            keys[e.code] = true;
-            if(e.code === 'KeyE') handleE();
+        window.onkeydown = (e) => { 
+            keys[e.code] = true; 
+            if(e.code === 'KeyE') handleE(); 
             if(e.code === 'Space') handleSpace();
-            if(e.code === 'KeyB') toggleBackpack();
+            if(e.code === 'KeyB') toggleBackpack(); 
+            if(e.code === 'KeyT') handleT(); 
+            if(e.code === 'KeyM') game.showMap = !game.showMap;
             if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyS','KeyA','KeyD','Space'].includes(e.code)) e.preventDefault();
         };
         window.onkeyup = (e) => keys[e.code] = false;
 
-        function addFloatingText(x, y, text, color) { game.floatingTexts.push({ x: x, y: y, text: text, color: color, life: 40 }); }
+        function handleT() {
+            if(game.isMenuOpen || game.forgePhase || game.testPhase) return;
+            
+            let sameMap = false;
+            if (otherPlayer && otherPlayer.map === game.map) {
+                if (game.map === 'CAVE') {
+                    if (otherPlayer.currentArea === game.currentArea) sameMap = true;
+                } else {
+                    sameMap = true;
+                }
+            }
+            
+            if(!peerConn || !peerConn.open || !otherPlayer || !sameMap) {
+                addFloatingText(game.player.x, game.player.y - 10, "NO ONE HERE", C.red); return;
+            }
+            if(dist(game.player.x, game.player.y, otherPlayer.x, otherPlayer.y) > 60) {
+                addFloatingText(game.player.x, game.player.y - 10, "TOO FAR", C.red); return;
+            }
+            openTradeMenu();
+            peerConn.send({ type: 'trade_open' });
+        }
+
+        function addFloatingText(x, y, text, color) { 
+            game.floatingTexts.push({ x: x, y: y, text: text, color: color, life: 40 }); 
+        }
+
         function gainMiningXp(amount, x, y) {
             game.miningXp += amount; addFloatingText(x, y - 10, `+${amount} XP`, C.blue);
             let req = game.miningLvl * 100;
-            if (game.miningXp >= req) { game.miningXp -= req; game.miningLvl++; addFloatingText(x, y - 25, `MINE LVL UP!`, C.green); }
+            if (game.miningXp >= req) { 
+                game.miningXp -= req; 
+                game.miningLvl++; 
+                addFloatingText(x, y - 25, `MINE LVL UP!`, C.green); 
+            }
         }
 
         function getEquipmentStats() {
             let totalPow = 0; let totalStam = 0;
             Object.values(game.equipment).forEach(item => {
                 if (!item) return;
-                let mult = 1; if (item.quality === 'Rare') mult = 1.5; if (item.quality === 'Epic') mult = 2.0; if (item.quality === 'Masterwork') mult = 3.0; if (item.quality === 'Legendary') mult = 5.0;
+                let mult = 1; 
+                if (item.quality === 'Rare') mult = 1.5; 
+                if (item.quality === 'Epic') mult = 2.0; 
+                if (item.quality === 'Masterwork') mult = 3.0; 
+                if (item.quality === 'Legendary') mult = 5.0;
                 let p = 0, s = 0;
-                if (item.name.includes('Ring')) { s = 15; p = 1; } if (item.name.includes('Amulet')) { s = 25; p = 2; }
-                if (item.name.includes('Helmet') || item.name.includes('Crown')) { s = 40; p = 1; } if (item.name.includes('Armor') || item.name.includes('Chestplate')) { s = 80; }
+                if (item.name.includes('Ring')) { s = 15; p = 1; } 
+                if (item.name.includes('Amulet')) { s = 25; p = 2; }
+                if (item.name.includes('Helmet') || item.name.includes('Crown')) { s = 40; p = 1; } 
+                if (item.name.includes('Armor') || item.name.includes('Chestplate')) { s = 80; }
                 totalPow += Math.floor(p * mult); totalStam += Math.floor(s * mult);
-            }); return { pow: totalPow, stam: totalStam };
+            }); 
+            return { pow: totalPow, stam: totalStam };
         }
 
         function getItemSlot(name) {
-            if (name.includes('Ring')) return 'hand'; if (name.includes('Amulet')) return 'neck';
-            if (name.includes('Helmet') || name.includes('Crown')) return 'head'; if (name.includes('Armor') || name.includes('Chestplate')) return 'body';
+            if (name.includes('Ring')) return 'hand'; 
+            if (name.includes('Amulet')) return 'neck';
+            if (name.includes('Helmet') || name.includes('Crown')) return 'head'; 
+            if (name.includes('Armor') || name.includes('Chestplate')) return 'body';
             return null;
         }
 
         function handleE() {
             if(game.forgePhase === 'heat') { game.heat = Math.min(100, game.heat + 9); createParticles(300, 200, C.orange, 3); return; }
             if(game.isMenuOpen || game.forgePhase || game.testPhase) return;
-           
+            
             if(game.map === 'CAVE') {
-                for (let i = 0; i < game.nodes.length; i++) {
-                    let n = game.nodes[i];
+                let nList = game.nodes[game.currentArea];
+                for (let i = 0; i < nList.length; i++) {
+                    let n = nList[i];
                     if(n.active && dist(game.player.x+10, game.player.y+13, n.x+16, n.y+16) < 60) {
                         if (game.stamina < 5) { addFloatingText(game.player.x + 10, game.player.y - 10, "EXHAUSTED!", C.red); return; }
                         game.stamina -= 5; game.player.mineAnim = 10;
                         setTimeout(() => {
-                            let stats = getEquipmentStats(); let totalPower = game.power + stats.pow; let levelBonusDmg = Math.floor((game.miningLvl - 1) / 3);
+                            let stats = getEquipmentStats(); 
+                            let totalPower = game.power + stats.pow; 
+                            let levelBonusDmg = Math.floor((game.miningLvl - 1) / 3);
                             let dmg = totalPower + levelBonusDmg;
-                           
+                            
                             let wasActive = n.active;
                             n.hp -= dmg; n.shake = 8;
-                           
+                            
                             if(peerConn && peerConn.open) {
-                                peerConn.send({ type: 'mine_node', nodeIndex: i, damage: dmg });
+                                peerConn.send({ type: 'mine_node', area: game.currentArea, nodeIndex: i, damage: dmg });
                             }
-                           
-                            let pCol = C.black; if(n.type==='iron') pCol = C.orange; else if(n.type==='gold') pCol = C.yellow; else if(n.type==='copper') pCol = C.copper; else if(n.type==='mithril') pCol = C.mithril; else if(n.type==='tin') pCol = C.tin; else if(n.type==='silver') pCol = C.silver; else if(n.type==='adamant') pCol = C.adamant;
+                            
+                            let pCol = C.black; 
+                            if(n.type==='iron') pCol = C.orange; else if(n.type==='gold') pCol = C.yellow; else if(n.type==='copper') pCol = C.copper; else if(n.type==='mithril') pCol = C.mithril; else if(n.type==='tin') pCol = C.tin; else if(n.type==='silver') pCol = C.silver; else if(n.type==='adamant') pCol = C.adamant;
                             createParticles(n.x+16, n.y+16, pCol, 6);
-                           
-                            if(n.hp <= 0 && wasActive) {
+                            
+                            if(n.hp <= 0 && wasActive) { 
                                 n.active = false; game.inv[n.type]++;
                                 let xpValues = { coal: 10, tin: 12, copper: 15, iron: 25, silver: 35, gold: 50, mithril: 100, adamant: 200 };
                                 gainMiningXp(xpValues[n.type] || 10, n.x + 16, n.y);
-                               
+                                
                                 if (game.isHost || !peerConn || !peerConn.open) {
-                                    setTimeout(() => {
+                                    setTimeout(() => { 
                                         let attempts = 0; let nx=0, ny=0;
-                                        while(attempts < 50) {
-                                            nx = 50 + Math.random() * 500; ny = 50 + Math.random() * 250;
-                                            let tooClose = game.nodes.some(other => other.active && dist(nx, ny, other.x, other.y) < 60);
-                                            if(ny < 330 && !tooClose) break;
-                                            attempts++;
-                                        }
-                                        n.x = nx; n.y = ny; n.active = true; n.hp = n.mhp;
-                                        if(peerConn && peerConn.open) peerConn.send({ type: 'respawn_node', nodeIndex: i, x: nx, y: ny });
-                                    }, 5000);
+                                        while(attempts < 50) { 
+                                            nx = 50 + Math.random() * 500; ny = 50 + Math.random() * 250; 
+                                            let tooClose = nList.some(other => other.active && dist(nx, ny, other.x, other.y) < 60); 
+                                            if(ny < 330 && !tooClose) break; 
+                                            attempts++; 
+                                        } 
+                                        
+                                        let roll = Math.random(); let nodeType = 'coal';
+                                        if (game.currentArea === 1) { if(roll > 0.95) nodeType = 'iron'; else if(roll > 0.75) nodeType = 'copper'; else if(roll > 0.50) nodeType = 'tin'; else nodeType = 'coal'; } 
+                                        else if (game.currentArea === 2) { if(roll > 0.80) nodeType = 'gold'; else if(roll > 0.50) nodeType = 'silver'; else if(roll > 0.10) nodeType = 'iron'; else nodeType = 'coal'; } 
+                                        else if (game.currentArea === 3) { if(roll > 0.70) nodeType = 'adamant'; else if(roll > 0.30) nodeType = 'mithril'; else if(roll > 0.10) nodeType = 'gold'; else nodeType = 'silver'; }
+
+                                        n.x = nx; n.y = ny; n.type = nodeType; n.hp = 5; n.mhp = 5; n.active = true; 
+                                        if(peerConn && peerConn.open) peerConn.send({ type: 'respawn_node', area: game.currentArea, nodeIndex: i, x: nx, y: ny, nodeType: nodeType, mhp: 5 });
+                                    }, 5000); 
                                 }
                             }
-                        }, 100); break;
+                        }, 100); break; 
                     }
                 }
             } else if (game.map === 'OUTDOOR') {
@@ -527,24 +794,45 @@
         }
 
         function handleSpace() {
-            if(game.forgePhase === 'hammer') { let hit = (game.hammerCursor >= 90 && game.hammerCursor <= 125); game.score += hit ? 40 : 10; game.hammerHits++; document.getElementById('hit-count').innerText = game.hammerHits; createParticles(300, 200, hit ? C.yellow : C.d_gray, 10); if(game.hammerHits >= 3) startPhase('quench'); }
-            else if (game.testPhase) { let hit = (game.hammerCursor >= 90 && game.hammerCursor <= 125); if (hit) { game.testHits++; document.getElementById('test-hit-count').innerText = game.testHits; createParticles(300, 200, C.green, 15); if (game.testHits >= 3) finishTest(true); } else { createParticles(300, 200, C.red, 15); finishTest(false); } }
+            if(game.forgePhase === 'hammer') { 
+                let hit = (game.hammerCursor >= 90 && game.hammerCursor <= 125); 
+                game.score += hit ? 40 : 10; game.hammerHits++; 
+                document.getElementById('hit-count').innerText = game.hammerHits; 
+                createParticles(300, 200, hit ? C.yellow : C.d_gray, 10); 
+                if(game.hammerHits >= 3) startPhase('quench'); 
+            } else if (game.testPhase) { 
+                let hit = (game.hammerCursor >= 90 && game.hammerCursor <= 125); 
+                if (hit) { 
+                    game.testHits++; 
+                    document.getElementById('test-hit-count').innerText = game.testHits; 
+                    createParticles(300, 200, C.green, 15); 
+                    if (game.testHits >= 3) finishTest(true); 
+                } else { 
+                    createParticles(300, 200, C.red, 15); 
+                    finishTest(false); 
+                } 
+            }
         }
 
         function toggleBackpack() {
             const bp = document.getElementById('backpack-menu');
-            if (bp.style.display === 'block') { closeMenus(); }
+            if (bp.style.display === 'block') { closeMenus(); } 
             else { if (game.isMenuOpen) closeMenus(); game.isMenuOpen = true; renderBackpack(); bp.style.display = 'block'; }
         }
 
         function equipItem(index) {
             let item = game.finishedItems[index]; let slot = getItemSlot(item.name);
             if (!slot) return;
-            if (game.equipment[slot]) { game.finishedItems.push(game.equipment[slot]); }
+            if (game.equipment[slot]) { game.finishedItems.push(game.equipment[slot]); } 
             game.equipment[slot] = item; game.finishedItems.splice(index, 1);
             createParticles(game.player.x + 10, game.player.y + 10, C.yellow, 15); addFloatingText(game.player.x + 10, game.player.y - 10, "Equipped!", C.green); renderBackpack();
         }
-        function unequipItem(slot) { if (game.equipment[slot]) { game.finishedItems.push(game.equipment[slot]); game.equipment[slot] = null; renderBackpack(); } }
+
+        function unequipItem(slot) { 
+            if (game.equipment[slot]) { 
+                game.finishedItems.push(game.equipment[slot]); game.equipment[slot] = null; renderBackpack(); 
+            } 
+        }
 
         function renderBackpack() {
             const slots = ['head', 'neck', 'body', 'hand'];
@@ -575,7 +863,7 @@
             if (oresAdded) list.appendChild(oreDiv);
 
             let itemsDiv = document.createElement('div'); itemsDiv.innerHTML = `<div style="color:#aaa; font-size:0.75rem; margin:15px 0 8px 0; border-bottom:1px solid #444; padding-bottom:3px;">FORGED ITEMS</div>`;
-            if (game.finishedItems.length === 0) { itemsDiv.innerHTML += `<div style="font-size:0.8rem; color:#666;">No items crafted.</div>`; }
+            if (game.finishedItems.length === 0) { itemsDiv.innerHTML += `<div style="font-size:0.8rem; color:#666;">No items crafted.</div>`; } 
             else {
                 game.finishedItems.forEach((item, idx) => {
                     let equipSlot = getItemSlot(item.name); let row = document.createElement('div'); row.className = 'inventory-item';
@@ -588,60 +876,63 @@
         }
 
         function openWholesaleMenu() {
-            game.isMenuOpen = true;
-            const list = document.getElementById('wholesale-list');
-            list.innerHTML = '';
-           
-            const addRawSell = (name, price, tagClass, count) => {
-                if(count > 0) {
-                    const div = document.createElement('div');
-                    div.className = 'inventory-item';
-                    div.innerHTML = `<div><b>${name} Ore</b> <span class="q-tag ${tagClass}">RAW</span></div><div class="gold-v" style="color:#ff004d;">${price}C</div>`;
-                    div.onclick = () => {
-                        game.coins += price; let key = name.toLowerCase(); game.inv[key]--;
-                        createParticles(game.player.x, game.player.y, C.yellow, 10);
+            game.isMenuOpen = true; 
+            const list = document.getElementById('wholesale-list'); 
+            list.innerHTML = ''; 
+            
+            const addRawSell = (name, price, tagClass, count) => { 
+                if(count > 0) { 
+                    const div = document.createElement('div'); 
+                    div.className = 'inventory-item'; 
+                    div.innerHTML = `<div><b>${name} Ore</b> <span class="q-tag ${tagClass}">RAW</span></div><div class="gold-v" style="color:#ff004d;">${price}C</div>`; 
+                    div.onclick = () => { 
+                        game.coins += price; let key = name.toLowerCase(); game.inv[key]--; 
+                        createParticles(game.player.x, game.player.y, C.yellow, 10); 
                         openWholesaleMenu(); saveGame();
-                    };
-                    list.appendChild(div);
-                }
-            };
-           
-            addRawSell("Adamant", 100, "q-legendary", game.inv.adamant);
-            addRawSell("Mithril", 40, "q-epic", game.inv.mithril);
-            addRawSell("Gold", 20, "q-rare", game.inv.gold);
-            addRawSell("Silver", 12, "q-rare", game.inv.silver);
-            addRawSell("Iron", 4, "q-common", game.inv.iron);
-            addRawSell("Copper", 2, "q-common", game.inv.copper);
+                    }; 
+                    list.appendChild(div); 
+                } 
+            }; 
+            
+            addRawSell("Adamant", 100, "q-legendary", game.inv.adamant); 
+            addRawSell("Mithril", 40, "q-epic", game.inv.mithril); 
+            addRawSell("Gold", 20, "q-rare", game.inv.gold); 
+            addRawSell("Silver", 12, "q-rare", game.inv.silver); 
+            addRawSell("Iron", 4, "q-common", game.inv.iron); 
+            addRawSell("Copper", 2, "q-common", game.inv.copper); 
             addRawSell("Tin", 2, "q-common", game.inv.tin);
 
-            game.finishedItems.forEach((item, idx) => {
-                const div = document.createElement('div');
-                div.className = 'inventory-item';
+            game.finishedItems.forEach((item, idx) => { 
+                const div = document.createElement('div'); 
+                div.className = 'inventory-item'; 
                 let cutPrice = Math.max(1, Math.floor(item.value * 0.40));
-                div.innerHTML = `<div><b>${item.name}</b> <span class="q-tag q-${item.quality.toLowerCase()}">${item.quality}</span></div><div class="gold-v" style="color:#ff004d;">${cutPrice}C</div>`;
-                div.onclick = () => {
-                    game.coins += cutPrice;
-                    createParticles(game.player.x, game.player.y, C.yellow, 15);
-                    game.finishedItems.splice(idx, 1);
+                div.innerHTML = `<div><b>${item.name}</b> <span class="q-tag q-${item.quality.toLowerCase()}">${item.quality}</span></div><div class="gold-v" style="color:#ff004d;">${cutPrice}C</div>`; 
+                div.onclick = () => { 
+                    game.coins += cutPrice; 
+                    createParticles(game.player.x, game.player.y, C.yellow, 15); 
+                    game.finishedItems.splice(idx, 1); 
                     openWholesaleMenu(); saveGame();
-                };
-                list.appendChild(div);
-            });
-           
+                }; 
+                list.appendChild(div); 
+            }); 
+            
             if(!game.finishedItems.length && !Object.values(game.inv).some(v => v > 0)) {
                 list.innerHTML = "<p style='font-size:0.8rem; color:#666;'>No items to sell.</p>";
             }
-            document.getElementById('wholesale-menu').style.display = 'block';
+            document.getElementById('wholesale-menu').style.display = 'block'; 
         }
 
         function openSellMenu() { game.isMenuOpen = true; renderMarketStall(); document.getElementById('sell-menu').style.display = 'block'; }
+        
         function renderMarketStall() {
             document.getElementById('market-pop-v').innerText = game.popularity;
-            let speedBoost = Math.floor((400 / Math.max(80, 400 - (game.popularity - 100))) * 100); document.getElementById('market-attract-v').innerText = speedBoost + "%";
+            let speedBoost = Math.floor((400 / Math.max(80, 400 - (game.popularity - 100))) * 100); 
+            document.getElementById('market-attract-v').innerText = speedBoost + "%";
 
             const invList = document.getElementById('market-inventory-list'); invList.innerHTML = '';
-            if (game.finishedItems.length === 0) { invList.innerHTML = `<div style="font-size:0.7rem; color:#666; text-align:center; margin-top:20px;">No gear in backpack to put on sale.</div>`; }
-            else {
+            if (game.finishedItems.length === 0) { 
+                invList.innerHTML = `<div style="font-size:0.7rem; color:#666; text-align:center; margin-top:20px;">No gear in backpack to put on sale.</div>`; 
+            } else {
                 game.finishedItems.forEach((item, idx) => {
                     const div = document.createElement('div'); div.className = 'inventory-item'; div.style.margin = '4px 0'; div.style.padding = '6px'; div.style.fontSize = '0.7rem';
                     div.innerHTML = `<div><b>${item.name}</b><br><span class="q-tag q-${item.quality.toLowerCase()}" style="font-size:0.55rem; padding:1px 3px;">${item.quality}</span></div><div style="color:#00e436; font-weight:bold;">LIST</div>`;
@@ -671,46 +962,48 @@
         function haggleMarket(type) { if (!game.marketNpc) return; let npc = game.marketNpc; npc.patience--; let increasePct = type === 'low' ? 0.15 : 0.35; let proposedCounter = Math.floor(npc.currentOffer * (1 + increasePct)); let successRate = type === 'low' ? 0.75 : 0.38; let popularityBonus = (game.popularity - 100) / 1200; let roll = Math.random(); if (proposedCounter <= npc.maxBudget && roll < (successRate + popularityBonus) && npc.patience >= 0) { npc.currentOffer = proposedCounter; createParticles(game.player.x, game.player.y, C.green, 6); } else { game.marketNpc = null; game.popularity = Math.max(10, game.popularity - 4); let baseTime = Math.max(80, 400 - (game.popularity - 100)); game.marketTimer = baseTime + Math.random() * 80; } renderMarketStall(); saveGame(); }
         function tickMarket() { if (game.marketItem && !game.marketNpc) { game.marketTimer--; if (game.marketTimer <= 0) { triggerNpcSpawn(); } } }
 
-        function openMineSelector() {
-            game.isMenuOpen = true;
-            const list = document.getElementById('mine-list');
-            list.innerHTML = '';
-            licenseData.forEach(area => {
-                const canAccess = game.licenseLvl >= area.id;
-                const div = document.createElement('div');
-                div.className = 'inventory-item' + (!canAccess ? ' disabled-item' : '');
-                let extraHtml = canAccess ? `<div style="font-size:0.65rem; color:#aaa;">Ores: ${area.ores.join(', ')}</div>` : `<div style="font-size:0.65rem; color:#ff004d;">Requires License Lv ${area.id}</div>`;
-                div.innerHTML = `<div><b style="color:${area.color};">${area.name}</b><br>${extraHtml}</div>`;
-               
-                if (canAccess) {
-                    div.onclick = () => {
-                        closeMenus();
-                        game.currentArea = area.id;
-                        game.map = 'CAVE';
-                        game.player.y = 350;
-                        if (game.isHost || !peerConn || !peerConn.open) {
-                            spawnNodes(game.currentArea);
-                            if(peerConn && peerConn.open) peerConn.send({ type: 'world_sync', nodes: game.nodes, currentArea: game.currentArea });
-                        } else {
-                            peerConn.send({ type: 'request_cave', area: game.currentArea });
-                        }
-                    };
-                }
-                list.appendChild(div);
-            });
-            document.getElementById('mine-selector-menu').style.display = 'block';
+        function openMineSelector() { 
+            game.isMenuOpen = true; 
+            const list = document.getElementById('mine-list'); 
+            list.innerHTML = ''; 
+            licenseData.forEach(area => { 
+                const canAccess = game.licenseLvl >= area.id; 
+                const div = document.createElement('div'); 
+                div.className = 'inventory-item' + (!canAccess ? ' disabled-item' : ''); 
+                let extraHtml = canAccess ? `<div style="font-size:0.65rem; color:#aaa;">Ores: ${area.ores.join(', ')}</div>` : `<div style="font-size:0.65rem; color:#ff004d;">Requires License Lv ${area.id}</div>`; 
+                div.innerHTML = `<div><b style="color:${area.color};">${area.name}</b><br>${extraHtml}</div>`; 
+                
+                if (canAccess) { 
+                    div.onclick = () => { 
+                        closeMenus(); 
+                        game.currentArea = area.id; 
+                        game.map = 'CAVE'; 
+                        game.player.y = 350; 
+                    }; 
+                } 
+                list.appendChild(div); 
+            }); 
+            document.getElementById('mine-selector-menu').style.display = 'block'; 
         }
+
         function openMinerAssocMenu() { game.isMenuOpen = true; const details = document.getElementById('assoc-details'); let nextLicense = licenseData.find(l => l.id === game.licenseLvl + 1); if (!nextLicense) { details.innerHTML = `<h3 style="color:${C.adamant};">Master Miner</h3><p>You hold the highest mining license!</p>`; } else { let canAfford = game.coins >= nextLicense.cost; let highEnough = game.miningLvl >= nextLicense.reqLvl; details.innerHTML = `<div style="margin-bottom:10px;">Current License: <b>Lv ${game.licenseLvl}</b></div><hr style="border-color:#36363b;"><div style="margin-top:10px; color:#29adff;">Next: <b>${nextLicense.name} (Lv ${nextLicense.id})</b></div><div style="font-size:0.8rem; margin-top:5px; color:${highEnough ? C.green : C.red}">Req Mine Lv: ${nextLicense.reqLvl}</div><div style="font-size:0.8rem; color:${canAfford ? C.green : C.red}">Test Fee: ${nextLicense.cost}C</div>`; if (canAfford && highEnough) { details.innerHTML += `<button onclick="startMiningTest(${nextLicense.id}, ${nextLicense.cost})" style="width:100%; margin-top:15px; background:${C.indigo}; color:white;">TAKE TEST</button>`; } } document.getElementById('miner-assoc-menu').style.display = 'block'; }
         function startMiningTest(targetLvl, cost) { game.coins -= cost; game.isMenuOpen = false; document.getElementById('miner-assoc-menu').style.display = 'none'; game.testPhase = true; game.testHits = 0; game.hammerCursor = 0; game.hammerDir = targetLvl === 2 ? 6 : 9; document.getElementById('test-hit-count').innerText = "0"; document.getElementById('test-menu').style.display = 'block'; }
         function finishTest(success) { game.testPhase = false; document.getElementById('test-menu').style.display = 'none'; game.isMenuOpen = true; let resultHtml = ""; if (success) { game.licenseLvl++; document.getElementById('result-title').innerText = "LICENSE UPGRADED!"; document.getElementById('result-title').style.color = C.green; document.getElementById('result-icon-container').innerHTML = `<div style="font-size:3rem;">📜</div>`; resultHtml = `<div style="color:#fff;">Congratulations!</div><div style="color:#aaa; font-size:0.85rem; margin-top:5px;">You are now a License Lv ${game.licenseLvl} Miner.</div>`; createParticles(300, 200, C.green, 30); } else { document.getElementById('result-title').innerText = "TEST FAILED"; document.getElementById('result-title').style.color = C.red; document.getElementById('result-icon-container').innerHTML = `<div style="font-size:3rem;">❌</div>`; resultHtml = `<div style="color:#fff;">You missed the sweet spot.</div><div style="color:#aaa; font-size:0.85rem; margin-top:5px;">Keep practicing and try again.</div>`; createParticles(300, 200, C.red, 20); } document.getElementById('result-details').innerHTML = resultHtml; document.getElementById('forge-result').style.display = 'block'; saveGame(); }
-       
+        
         function openForgeMenu() { game.isMenuOpen=true; ORES.forEach(o=>currentForgeMix[o]=0); renderForgeMenu(); document.getElementById('forge-menu').style.display='block'; }
-        function renderForgeMenu() { const list=document.getElementById('material-setup-list'); list.innerHTML=''; ORES.forEach(mat=>{ let col='#c2c3c7'; if(mat==='iron')col='#ffccaa'; if(mat==='gold')col='#ffec27'; if(mat==='copper')col=C.copper; if(mat==='mithril')col=C.mithril; if(mat==='tin')col=C.tin; if(mat==='silver')col=C.silver; if(mat==='adamant')col=C.adamant; list.innerHTML+=`<div class="material-row"><span style="color:${col}; width:55px; text-transform:uppercase; font-size:0.75rem;">${mat}</span><div><button class="btn-qty" onclick="modMaterial('${mat}', -1)">-</button><span style="display:inline-block; width:20px; text-align:center; font-size:1.1rem;">${currentForgeMix[mat]}</span><button class="btn-qty" onclick="modMaterial('${mat}', 1)">+</button></div><span style="font-size:0.6rem; color:#888; width:25px; text-align:right;">(${game.inv[mat]})</span></div>`; }); drawCrucible(); }
+        function renderForgeMenu() { 
+            const list = document.getElementById('material-setup-list'); list.innerHTML=''; 
+            ORES.forEach(mat=>{ 
+                let col='#c2c3c7'; if(mat==='iron')col='#ffccaa'; if(mat==='gold')col='#ffec27'; if(mat==='copper')col=C.copper; if(mat==='mithril')col=C.mithril; if(mat==='tin')col=C.tin; if(mat==='silver')col=C.silver; if(mat==='adamant')col=C.adamant; 
+                list.innerHTML+=`<div class="material-row"><span style="color:${col}; width:55px; text-transform:uppercase; font-size:0.75rem;">${mat}</span><div><button class="btn-qty" onclick="modMaterial('${mat}', -1)">-</button><span style="display:inline-block; width:20px; text-align:center; font-size:1.1rem;">${currentForgeMix[mat]}</span><button class="btn-qty" onclick="modMaterial('${mat}', 1)">+</button></div><span style="font-size:0.6rem; color:#888; width:25px; text-align:right;">(${game.inv[mat]})</span></div>`; 
+            }); 
+            drawCrucible(); 
+        }
         function drawCrucible() { const cCtx=document.getElementById('crucibleCanvas').getContext('2d'); cCtx.clearRect(0,0,100,150); const pRectC=(x,y,w,h,col)=>{cCtx.fillStyle=col;cCtx.fillRect(Math.floor(x),Math.floor(y),w,h);}; pRectC(15,60,70,20,'#36363b'); pRectC(20,65,60,15,'#111'); let items=[]; for(let i=0;i<currentForgeMix.coal;i++)items.push({col:'#000',shine:'#5f574f'}); for(let i=0;i<currentForgeMix.tin;i++)items.push({col:C.tin,shine:'#fff'}); for(let i=0;i<currentForgeMix.copper;i++)items.push({col:C.copper,shine:'#fff'}); for(let i=0;i<currentForgeMix.iron;i++)items.push({col:'#ffa300',shine:'#fff'}); for(let i=0;i<currentForgeMix.silver;i++)items.push({col:C.silver,shine:'#fff'}); for(let i=0;i<currentForgeMix.gold;i++)items.push({col:'#ffec27',shine:'#fff'}); for(let i=0;i<currentForgeMix.mithril;i++)items.push({col:C.mithril,shine:'#fff'}); for(let i=0;i<currentForgeMix.adamant;i++)items.push({col:C.adamant,shine:'#fff'}); items.forEach((item,idx)=>{let row=Math.floor(idx/5);let colIndex=idx%5;let offsetX=(row%2===0)?0:5;let x=25+colIndex*10+offsetX;let y=75-row*6; if(x<22)x=22;if(x>68)x=68; pRectC(x,y,8,8,item.col); pRectC(x+1,y+1,2,2,item.shine);}); pRectC(15,78,70,35,'#5f574f'); pRectC(25,113,50,15,'#444449'); pRectC(30,128,40,5,'#1a1a1c'); pRectC(15,78,70,3,'#c2c3c7'); }
         function modMaterial(mat, amt) { let newVal=currentForgeMix[mat]+amt; if(newVal>=0 && newVal<=game.inv[mat]){currentForgeMix[mat]=newVal; renderForgeMenu();} }
         function startCustomForge() { let totalAdded=Object.values(currentForgeMix).reduce((a,b)=>a+b,0); if(totalAdded<=0)return; Object.keys(currentForgeMix).forEach(k=>game.inv[k]-=currentForgeMix[k]); game.score=0; game.hammerHits=0; game.quenchProgress=0; document.getElementById('hit-count').innerText="0"; document.getElementById('quench-fill').style.width="0%"; game.isMenuOpen=false; document.getElementById('forge-menu').style.display='none'; document.getElementById('complex-forge').style.display='block'; startPhase('heat'); }
         function startPhase(ph) { game.forgePhase = ph; document.getElementById('heat-ui').style.display=ph==='heat'?'block':'none'; document.getElementById('hammer-ui').style.display=ph==='hammer'?'block':'none'; document.getElementById('quench-ui').style.display=ph==='quench'?'block':'none'; document.getElementById('forge-title').innerText=ph.toUpperCase(); if(ph==='heat'){game.heat=20;game.heatTimer=0;} }
-       
+        
         function openBuyMenu() { game.isMenuOpen=true; const list=document.getElementById('buy-list'); list.innerHTML=''; shopItems.forEach(item=>{ const div=document.createElement('div'); const canAfford=game.coins>=item.price; const isBetter=item.power>game.power; div.className='inventory-item'+(!canAfford||!isBetter?' disabled-item':''); let extraHtml=''; if(!isBetter) extraHtml=`<div style="font-size:0.6rem; color:#ff004d; margin-top:2px;">Owned or Weaker</div>`; else if(!canAfford) extraHtml=`<div style="font-size:0.6rem; color:#aaa; margin-top:2px;">Not Enough Coins</div>`; div.innerHTML=`<div><b style="color:#29adff;">${item.name} Pickaxe</b><br><span style="font-size:0.7rem; color:#aaa;">Mining Power: ${item.power}</span>${extraHtml}</div><div class="gold-v">${item.price}C</div>`; if(canAfford&&isBetter){ div.onclick=()=>{ game.coins-=item.price; game.pick=item.name; game.power=item.power; createParticles(game.player.x, game.player.y, C.green, 20); addFloatingText(game.player.x, game.player.y-10, "Equipped!", C.green); openBuyMenu(); saveGame(); }; } list.appendChild(div); }); document.getElementById('buy-menu').style.display='block'; }
 
         function generateItemIcon(name, quality) {
@@ -724,33 +1017,33 @@
         function finishForge() {
             let cp = currentForgeMix.copper, i = currentForgeMix.iron, c = currentForgeMix.coal, g = currentForgeMix.gold, m = currentForgeMix.mithril, t = currentForgeMix.tin, s = currentForgeMix.silver, a = currentForgeMix.adamant;
             let itemName = "Mystery Alloy", baseVal = 5, isUpgrade = false, power = game.power, upgName = "";
-           
-            if (a >= 5 && game.pick === 'Mithril') { isUpgrade = true; upgName = 'Adamant'; power = 20; itemName = "Adamant Pickaxe"; baseVal = 5000; }
-            else if (m >= 5 && game.pick === 'Steel') { isUpgrade = true; upgName = 'Mithril'; power = 12; itemName = "Mithril Pickaxe"; baseVal = 2000; }
-            else if (i === 5 && c >= 5 && game.pick === 'Iron') { isUpgrade = true; upgName = 'Steel'; power = 6; itemName = "Steel Pickaxe"; baseVal = 500; }
-            else if (i >= 5 && game.pick === 'Bronze') { isUpgrade = true; upgName = 'Iron'; power = 4; itemName = "Iron Pickaxe"; baseVal = 200; }
-            else if (cp >= 3 && t >= 2 && game.pick === 'Stone') { isUpgrade = true; upgName = 'Bronze'; power = 3; itemName = "Bronze Pickaxe"; baseVal = 100; }
+            
+            if (a >= 5 && game.pick === 'Mithril') { isUpgrade = true; upgName = 'Adamant'; power = 20; itemName = "Adamant Pickaxe"; baseVal = 5000; } 
+            else if (m >= 5 && game.pick === 'Steel') { isUpgrade = true; upgName = 'Mithril'; power = 12; itemName = "Mithril Pickaxe"; baseVal = 2000; } 
+            else if (i === 5 && c >= 5 && game.pick === 'Iron') { isUpgrade = true; upgName = 'Steel'; power = 6; itemName = "Steel Pickaxe"; baseVal = 500; } 
+            else if (i >= 5 && game.pick === 'Bronze') { isUpgrade = true; upgName = 'Iron'; power = 4; itemName = "Iron Pickaxe"; baseVal = 200; } 
+            else if (cp >= 3 && t >= 2 && game.pick === 'Stone') { isUpgrade = true; upgName = 'Bronze'; power = 3; itemName = "Bronze Pickaxe"; baseVal = 100; } 
             else if (m >= 5 && c >= 2) { itemName = "Mithril Chestplate"; baseVal = 1800 + (m*50); }
             else if (i >= 6 && c >= 4) { itemName = "Steel Armor"; baseVal = 600 + (i*10); }
             else if (cp >= 4 && t >= 2) { itemName = "Bronze Armor"; baseVal = 150 + (cp*5); }
             else if (g >= 3) { itemName = "Gold Crown"; baseVal = 1200 + (g*50); }
             else if (i >= 4 && c >= 2) { itemName = "Iron Helmet"; baseVal = 200 + (i*5); }
             else if (cp >= 3 && c >= 3) { itemName = "Copper Helmet"; baseVal = 80 + (cp*5); }
-            else if (a >= 4 && c >= 10) { itemName = "Adamant Battleaxe"; baseVal = 3000 + (a*100); }
-            else if (a >= 2 && i >= 2) { itemName = "Adamant Sword"; baseVal = 2000 + (a*100); }
-            else if (m >= 4 && c >= 5) { itemName = "Mithril Battleaxe"; baseVal = 800 + (m*50); }
-            else if (m >= 2 && s >= 1) { itemName = "Mithril Sword"; baseVal = 500 + (m*50); }
-            else if (g >= 3 && s >= 1) { itemName = "Royal Gold Sword"; baseVal = 400 + (g*30) + (s*20); }
-            else if (s >= 2 && i >= 1) { itemName = "Silver Sword"; baseVal = 250 + (s*40); }
-            else if (i >= 5 && c >= 5) { itemName = "Steel Battleaxe"; baseVal = 120 + (i*5) + (c*2); }
-            else if (i >= 3 && c >= 2) { itemName = "Steel Sword"; baseVal = 80 + (i*5) + (c*2); }
-            else if (cp >= 3 && t >= 2) { itemName = "Bronze Battleaxe"; baseVal = 60 + (cp*4) + (t*4); }
-            else if (cp >= 2 && t >= 1) { itemName = "Bronze Sword"; baseVal = 40 + (cp*4) + (t*4); }
-            else if (s >= 2 && g >= 1) { itemName = "Magic Amulet"; baseVal = 600; }
-            else if (s >= 1 && i === 0 && c === 0) { itemName = "Silver Ring"; baseVal = 100 * s; }
-            else if (g >= 1 && i === 0 && c === 0) { itemName = "Gold Ring"; baseVal = 150 * g; }
-            else if (t >= 3) { itemName = "Tin Dagger"; baseVal = 10 + (t*2); }
-            else if (c > 0 && i === 0 && g === 0 && m === 0 && cp === 0 && s === 0 && a === 0 && t === 0) { itemName = "Pile of Ash"; baseVal = 1; }
+            else if (a >= 4 && c >= 10) { itemName = "Adamant Battleaxe"; baseVal = 3000 + (a*100); } 
+            else if (a >= 2 && i >= 2) { itemName = "Adamant Sword"; baseVal = 2000 + (a*100); } 
+            else if (m >= 4 && c >= 5) { itemName = "Mithril Battleaxe"; baseVal = 800 + (m*50); } 
+            else if (m >= 2 && s >= 1) { itemName = "Mithril Sword"; baseVal = 500 + (m*50); } 
+            else if (g >= 3 && s >= 1) { itemName = "Royal Gold Sword"; baseVal = 400 + (g*30) + (s*20); } 
+            else if (s >= 2 && i >= 1) { itemName = "Silver Sword"; baseVal = 250 + (s*40); } 
+            else if (i >= 5 && c >= 5) { itemName = "Steel Battleaxe"; baseVal = 120 + (i*5) + (c*2); } 
+            else if (i >= 3 && c >= 2) { itemName = "Steel Sword"; baseVal = 80 + (i*5) + (c*2); } 
+            else if (cp >= 3 && t >= 2) { itemName = "Bronze Battleaxe"; baseVal = 60 + (cp*4) + (t*4); } 
+            else if (cp >= 2 && t >= 1) { itemName = "Bronze Sword"; baseVal = 40 + (cp*4) + (t*4); } 
+            else if (s >= 2 && g >= 1) { itemName = "Magic Amulet"; baseVal = 600; } 
+            else if (s >= 1 && i === 0 && c === 0) { itemName = "Silver Ring"; baseVal = 100 * s; } 
+            else if (g >= 1 && i === 0 && c === 0) { itemName = "Gold Ring"; baseVal = 150 * g; } 
+            else if (t >= 3) { itemName = "Tin Dagger"; baseVal = 10 + (t*2); } 
+            else if (c > 0 && i === 0 && g === 0 && m === 0 && cp === 0 && s === 0 && a === 0 && t === 0) { itemName = "Pile of Ash"; baseVal = 1; } 
             else { itemName = "Strange Chunk"; baseVal = (t*2) + (cp*2) + (i*3) + c + (s*10) + (g*15) + (m*30) + (a*60); }
 
             game.score += (game.forgeLvl - 1) * 15;
@@ -761,50 +1054,243 @@
             let req = game.forgeLvl * 100; let leveledUpForge = false;
             if (game.forgeXp >= req) { game.forgeXp -= req; game.forgeLvl++; leveledUpForge = true; }
 
-            if (isUpgrade && game.power < power) { game.pick = upgName; game.power = power; }
+            if (isUpgrade && game.power < power) { game.pick = upgName; game.power = power; } 
             else { game.finishedItems.push({ name: itemName, quality: q, value: finalValue }); }
-           
+            
             createParticles(300, 200, C.green, 20); document.getElementById('result-title').innerText = "CRAFTING SUCCESS!"; document.getElementById('result-title').style.color = C.green;
             document.getElementById('result-icon-container').innerHTML = `<img src="${generateItemIcon(itemName, q)}" style="width:128px; height:128px;">`;
             let resultHtml = `<div style="color:#aaa; font-size:0.8rem;">You pulled from the forge...</div><div style="font-size: 1.3rem; font-weight: bold; margin: 5px 0; color:#fff;">${itemName}</div>`;
-            if(isUpgrade && game.power <= power) { resultHtml += `<div style="color: #29adff;">Pickaxe Upgraded! (Power: ${power})</div><div style="font-size:0.7rem; color:#aaa; margin-top:5px;">Mine ores faster!</div>`; }
+            if(isUpgrade && game.power <= power) { resultHtml += `<div style="color: #29adff;">Pickaxe Upgraded! (Power: ${power})</div><div style="font-size:0.7rem; color:#aaa; margin-top:5px;">Mine ores faster!</div>`; } 
             else { resultHtml += `<div style="margin-bottom: 5px;">Quality: <span class="q-tag q-${q.toLowerCase()}">${q}</span></div><div style="color:#aaa; font-size:0.85rem;">Value: <span class="gold-v">${finalValue}C</span></div>`; }
-           
+            
             let eSlot = getItemSlot(itemName);
             if (eSlot) { resultHtml += `<div style="color:#00e436; font-size:0.75rem; margin-top:5px; font-weight:bold;">Equippable: ${eSlot.toUpperCase()}</div>`; }
-           
+            
             resultHtml += `<div style="margin-top: 10px; color: #ffac30; font-size: 0.8rem; font-weight: bold;">+${xpEarned} Forge XP</div>`;
             if (leveledUpForge) resultHtml += `<div style="color: #00e436; font-size: 0.9rem; font-weight: bold; margin-top: 5px;">⚒️ Forge Level Up! (Lv ${game.forgeLvl})</div>`;
             document.getElementById('result-details').innerHTML = resultHtml; game.forgePhase = ''; document.getElementById('complex-forge').style.display = 'none';
             game.isMenuOpen = true; document.getElementById('forge-result').style.display = 'block';
-            saveGame();
+            saveGame(); 
         }
 
         function drawPlayer(x, y, r, isOther=false) {
             const legWobble = r.walking ? Math.sin(r.tick * 0.2) * 3 : 0; const isMining = r.player.mineAnim > 0; const armY = y + 12 + Math.abs(legWobble) * 0.5;
             ctx.save(); if(isMining) ctx.translate(r.player.dir * 4, 2);
-            let totalBag = isOther ? 0 : Object.values(game.inv).reduce((a,b)=>a+b,0) + game.finishedItems.length; let bagHeight = 6 + Math.min(12, Math.floor(totalBag / 3));
+            let totalBag = isOther ? 0 : Object.values(game.inv).reduce((a,b)=>Number(a)+Number(b),0) + (game.finishedItems ? game.finishedItems.length : 0); 
+            let bagHeight = 6 + Math.min(12, Math.floor(totalBag / 3) || 0); 
             if (r.player.dir > 0) { pRect(x - 3, y + 18 - bagHeight, 7, bagHeight, C.brown); pRect(x - 3, y + 18 - bagHeight, 7, 2, C.d_brown); } else { pRect(x + 16, y + 18 - bagHeight, 7, bagHeight, C.brown); pRect(x + 16, y + 18 - bagHeight, 7, 2, C.d_brown); }
-           
-            let bodyCol = isOther ? C.blue : C.d_gray;
+            
+            let bodyCol = isOther ? C.blue : C.d_gray; 
             if(!isOther && game.equipment.body) { if(game.equipment.body.name.includes('Mithril')) bodyCol = C.mithril; else if(game.equipment.body.name.includes('Steel')) bodyCol = C.indigo; else if(game.equipment.body.name.includes('Bronze')) bodyCol = C.bronze; }
             pRect(x + 4, y, 12, 10, C.l_gray);
-           
+            
             if(!isOther && game.equipment.head) { let hCol = C.d_gray; if(game.equipment.head.name.includes('Gold')) hCol = C.yellow; else if(game.equipment.head.name.includes('Iron')) hCol = C.l_gray; else if(game.equipment.head.name.includes('Copper')) hCol = C.copper; pRect(x + 2, y - 2, 16, 6, hCol); if(game.equipment.head.name.includes('Crown')) { pRect(x + 2, y - 4, 2, 2, C.yellow); pRect(x + 8, y - 5, 4, 3, C.yellow); pRect(x + 16, y - 4, 2, 2, C.yellow); } }
-            pRect(x + 6, y + 2, 8, 6, C.black); pRect(x + (r.player.dir > 0 ? 11 : 7), y + 4, 2, 2, C.blue);
-            pRect(x + 2, y + 10, 16, 10, bodyCol); pRect(x + 4, y, 3, 3, C.red);
+            pRect(x + 6, y + 2, 8, 6, C.black); pRect(x + (r.player.dir > 0 ? 11 : 7), y + 4, 2, 2, C.blue); 
+            pRect(x + 2, y + 10, 16, 10, bodyCol); pRect(x + 4, y, 3, 3, C.red); 
             pRect(x + 4, y + 20 + legWobble, 5, 6, C.d_gray); pRect(x + 11, y + 20 - legWobble, 5, 6, C.d_gray);
 
             let pCol = C.brown; if (game.pick === 'Adamant') pCol = C.adamant; else if (game.pick === 'Mithril') pCol = C.mithril; else if (game.pick === 'Gold') pCol = C.yellow; else if (game.pick === 'Steel') pCol = C.indigo; else if (game.pick === 'Iron') pCol = C.l_gray; else if (game.pick === 'Bronze') pCol = C.bronze;
             let swingAngle = isMining ? (10 - r.player.mineAnim) * 0.2 : 0;
-            if (r.player.dir > 0) { ctx.translate(x + 16, armY); ctx.rotate(swingAngle); pRect(0, 0, 4, 8, bodyCol); pRect(2, 4, 12, 2, C.brown); pRect(10, -2, 2, 10, pCol); pRect(8, 2, 6, 2, pCol); }
+            if (r.player.dir > 0) { ctx.translate(x + 16, armY); ctx.rotate(swingAngle); pRect(0, 0, 4, 8, bodyCol); pRect(2, 4, 12, 2, C.brown); pRect(10, -2, 2, 10, pCol); pRect(8, 2, 6, 2, pCol); } 
             else { ctx.translate(x + 4, armY); ctx.rotate(-swingAngle); pRect(-4, 0, 4, 8, bodyCol); pRect(-14, 4, 12, 2, C.brown); pRect(-12, -2, 2, 10, pCol); pRect(-14, 2, 6, 2, pCol); }
             ctx.restore();
         }
 
         function drawNode(n) { if(!n.active) return; ctx.save(); if(n.shake > 0) { ctx.translate((Math.random()-0.5)*n.shake, 0); n.shake *= 0.8; } const x = n.x, y = n.y; pRect(x+4, y+26, 24, 6, 'rgba(0,0,0,0.3)'); pRect(x+4, y+4, 24, 24, C.d_gray); pRect(x+0, y+8, 4, 16, C.d_gray); pRect(x+28, y+10, 4, 12, C.d_gray); pRect(x+8, y+0, 16, 4, C.d_gray); pRect(x+20, y+8, 8, 20, C.black + '44'); pRect(x+8, y+20, 20, 8, C.black + '44'); pRect(x+4, y+4, 12, 2, C.l_gray); pRect(x+4, y+6, 2, 10, C.l_gray); let oC = C.black, oH = C.d_gray; if(n.type==='iron') { oC = C.orange; oH = C.yellow; } else if(n.type==='gold') { oC = C.yellow; oH = C.white; } else if(n.type==='copper') { oC = C.copper; oH = C.peach; } else if(n.type==='mithril') { oC = C.mithril; oH = C.white; } else if(n.type==='tin') { oC = C.tin; oH = C.white; } else if(n.type==='silver') { oC = C.silver; oH = C.white; } else if(n.type==='adamant') { oC = C.adamant; oH = C.white; } pRect(x+8, y+8, 6, 6, oC); pRect(x+9, y+9, 2, 2, oH); if(game.tick % 60 < 10 && (n.type==='gold' || n.type==='mithril' || n.type==='adamant' || n.type==='silver')) pRect(x+10, y+10, 2, 2, C.white); pRect(x+18, y+16, 5, 5, oC); pRect(x+19, y+17, 2, 2, oH); const hpP = n.hp / n.mhp; pRect(x, y-10, 32, 4, C.black); pRect(x, y-10, hpP*32, 4, hpP > 0.5 ? C.green : C.red); ctx.restore(); }
-        function drawTree(tx, ty) { pRect(tx+10, ty+20, 10, 20, C.d_brown); pRect(tx, ty, 30, 30, C.d_green); pRect(tx+2, ty+2, 26, 26, '#00a368'); }
-        function drawFloatingTexts() { ctx.font = "bold 12px Courier"; ctx.textAlign = "center"; for (let i = game.floatingTexts.length - 1; i >= 0; i--) { let ft = game.floatingTexts[i]; ctx.fillStyle = ft.color; ctx.globalAlpha = ft.life / 40; ctx.fillText(ft.text, ft.x, ft.y); ft.y -= 0.5; ft.life--; if (ft.life <= 0) game.floatingTexts.splice(i, 1); } ctx.globalAlpha = 1.0; ctx.textAlign = "left"; }
+        
+        function drawTree(tx, ty) { 
+            pRect(tx+10, ty+20, 10, 20, C.d_brown); pRect(tx, ty, 30, 30, C.d_green); pRect(tx+2, ty+2, 26, 26, '#00a368'); 
+        }
+
+        function drawFloatingTexts() { 
+            ctx.font = "bold 12px sans-serif"; ctx.textAlign = "center"; 
+            for (let i = game.floatingTexts.length - 1; i >= 0; i--) { 
+                let ft = game.floatingTexts[i]; ctx.fillStyle = ft.color; ctx.globalAlpha = ft.life / 40; ctx.fillText(ft.text, ft.x, ft.y); ft.y -= 0.5; ft.life--; 
+                if (ft.life <= 0) game.floatingTexts.splice(i, 1); 
+            } 
+            ctx.globalAlpha = 1.0; ctx.textAlign = "left"; 
+        }
+
+        // MAP OVERLAY CALLS
+        function drawMinimapHUD() {
+            let mx = 440, my = 15;
+            let mw = 145, mh = 95;
+
+            ctx.fillStyle = 'rgba(20, 20, 24, 0.85)';
+            ctx.fillRect(mx, my, mw, mh);
+            ctx.strokeStyle = '#444449';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(mx, my, mw, mh);
+
+            let ratioX = mw / 600;
+            let ratioY = mh / 400;
+
+            const sharpRect = (x, y, w, h, c) => { ctx.fillStyle=c; ctx.fillRect(x, y, w, h); };
+
+            if (game.map === 'OUTDOOR') {
+                sharpRect(mx + 50 * ratioX, my + 30 * ratioY, 100 * ratioX, 100 * ratioY, C.d_gray); // Forge
+                sharpRect(mx + 420 * ratioX, my + 30 * ratioY, 80 * ratioX, 50 * ratioY, 'rgba(0,0,0,0.2)'); // Tools
+                sharpRect(mx + 420 * ratioX, my + 240 * ratioY, 100 * ratioX, 100 * ratioY, C.mithril); // Stall
+                sharpRect(mx + 50 * ratioX, my + 260 * ratioY, 80 * ratioX, 80 * ratioY, C.l_gray); // Assoc
+                sharpRect(mx + 260 * ratioX, my + 240 * ratioY, 80 * ratioX, 60 * ratioY, '#111'); // Smuggler
+                sharpRect(mx + 250 * ratioX, my + 0 * ratioY, 100 * ratioX, 20 * ratioY, C.d_gray); // Cave Entry
+            } else if (game.map === 'CAVE') {
+                let nList = game.nodes[game.currentArea];
+                if (nList) {
+                    nList.forEach(n => {
+                        if (n.active) sharpRect(mx + n.x * ratioX, my + n.y * ratioY, 3, 3, C.sand);
+                    });
+                }
+            }
+
+            let sameMap = false;
+            if (otherPlayer && otherPlayer.map === game.map) {
+                if (game.map === 'CAVE') {
+                    if (otherPlayer.currentArea === game.currentArea) sameMap = true;
+                } else { sameMap = true; }
+            }
+            
+            if (sameMap) {
+                ctx.beginPath(); ctx.arc(mx + otherPlayer.x * ratioX, my + otherPlayer.y * ratioY, 2.5, 0, Math.PI*2); ctx.fillStyle=C.purple; ctx.fill();
+            }
+
+            ctx.beginPath(); ctx.arc(mx + game.player.x * ratioX, my + game.player.y * ratioY, 2.5, 0, Math.PI*2); ctx.fillStyle='#00bfff'; ctx.fill();
+            
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.font = 'bold 9px sans-serif';
+            ctx.fillText("MAP: [M]", mx + 4, my + mh - 6);
+        }
+
+        function drawWorldMapOverlay() {
+            if (!game.showMap) return;
+
+            ctx.fillStyle = 'rgba(10, 10, 12, 0.88)';
+            ctx.fillRect(0, 0, 600, 400);
+
+            let bx = 20, by = 20;
+            let bw = 560, bh = 360;
+            
+            const sharpRect = (x, y, w, h, c) => { ctx.fillStyle=c; ctx.fillRect(x, y, w, h); };
+
+            sharpRect(bx, by, bw, bh, '#0d1622');
+            ctx.strokeStyle = '#1e4273';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(bx, by, bw, bh);
+
+            ctx.strokeStyle = 'rgba(30, 66, 115, 0.2)';
+            ctx.lineWidth = 1;
+            for(let x = bx + 20; x < bx + bw; x += 20) {
+                ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(x, by + bh); ctx.stroke();
+            }
+            for(let y = by + 20; y < by + bh; y += 20) {
+                ctx.beginPath(); ctx.moveTo(bx, y); ctx.lineTo(bx + bw, y); ctx.stroke();
+            }
+
+            sharpRect(bx, by, bw, 25, '#142338');
+            ctx.fillStyle = C.white; ctx.font = 'bold 12px sans-serif';
+            ctx.fillText("⚒️ MASTER ARCHITECTURE DIAGRAM - WORLD MAP", bx + 12, by + 16);
+            ctx.fillStyle = '#6fa8dc'; ctx.font = 'bold 10px sans-serif';
+            ctx.fillText("[TAP 'M' TO CLOSE]", bx + bw - 140, by + 16);
+
+            let col1 = bx + 25;
+            ctx.fillStyle = '#4fa3ff'; ctx.font = 'bold 10px sans-serif';
+            ctx.fillText("SERVER ENVIRONMENT CLUSTER NODES:", col1, by + 50);
+
+            let zones = [
+                { map: "OUTDOOR", area: 1, label: "TOWN SQUARE PLAZA HUB [MAIN]", y: by + 80 },
+                { map: "CAVE", area: 1, label: "SURFACE TUNNELS EXTRACTION (L1)", y: by + 140 },
+                { map: "CAVE", area: 2, label: "SILVER CAVERNS DEPOSIT (L2)", y: by + 200 },
+                { map: "CAVE", area: 3, label: "THE DEEP CORE (L3)", y: by + 260 }
+            ];
+
+            ctx.strokeStyle = '#2d557e'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(col1 + 60, by + 95); ctx.lineTo(col1 + 60, by + 140); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(col1 + 60, by + 140); ctx.lineTo(col1 + 60, by + 200); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(col1 + 60, by + 200); ctx.lineTo(col1 + 60, by + 260); ctx.stroke();
+
+            zones.forEach(z => {
+                let isCurrent = (game.map === z.map && (game.map === 'OUTDOOR' || game.currentArea === z.area));
+                sharpRect(col1, z.y, 240, 28, isCurrent ? '#1c3654' : '#111c2b');
+                ctx.strokeStyle = isCurrent ? '#00bfff' : '#233d5e'; ctx.lineWidth = 1; ctx.strokeRect(col1, z.y, 240, 28);
+
+                let popCount = 0; 
+                if (isCurrent) popCount++;
+                if (otherPlayer) {
+                    if (otherPlayer.map === z.map && (z.map === 'OUTDOOR' || otherPlayer.currentArea === z.area)) {
+                        popCount++;
+                    }
+                }
+
+                ctx.fillStyle = isCurrent ? '#00bfff' : C.white; ctx.font = 'bold 9px sans-serif';
+                ctx.fillText(`${isCurrent ? "► " : "  "}${z.label}`, col1 + 6, z.y + 17);
+                
+                ctx.fillStyle = popCount > 0 ? C.gold : '#555';
+                ctx.fillText(`[👤 POP: ${popCount}]`, col1 + 175, z.y + 17);
+            });
+
+            let col2 = bx + 290;
+            let mw = 250; 
+            let mh = 250;
+            sharpRect(col2, by + 50, mw, mh, '#090f17');
+            ctx.strokeStyle = '#1a2e47'; ctx.strokeRect(col2, by + 50, mw, mh);
+
+            ctx.fillStyle = '#4fa3ff'; ctx.font = 'bold 10px sans-serif';
+            ctx.fillText(`RADAR SCAN DETAILS: ${game.map === 'OUTDOOR' ? 'TOWN' : 'CAVE ' + game.currentArea}`, col2, by + 315);
+
+            let mxX = mw / 600; let mxY = mh / 400;
+            let mTop = by + 50;
+
+            if(game.map === "OUTDOOR") {
+                sharpRect(col2 + 50*mxX, mTop + 30*mxY, 100*mxX, 100*mxY, 'rgba(142,142,147,0.3)'); 
+                sharpRect(col2 + 420*mxX, mTop + 30*mxY, 80*mxX, 50*mxY, 'rgba(0,122,255,0.2)');   
+                sharpRect(col2 + 420*mxX, mTop + 240*mxY, 100*mxX, 100*mxY, 'rgba(52,199,89,0.2)'); 
+                sharpRect(col2 + 50*mxX, mTop + 260*mxY, 80*mxX, 80*mxY, 'rgba(175,82,222,0.2)');   
+                sharpRect(col2 + 260*mxX, mTop + 240*mxY, 80*mxX, 60*mxY, 'rgba(255,0,0,0.2)');     
+                sharpRect(col2 + 250*mxX, mTop + 0*mxY, 100*mxX, 20*mxY, 'rgba(255,255,255,0.2)');  
+
+                ctx.fillStyle = '#8a9ab0'; ctx.font = 'bold 8px sans-serif';
+                ctx.fillText("FORGE", col2 + 65*mxX, mTop + 80*mxY);
+                ctx.fillText("TOOLS", col2 + 435*mxX, mTop + 60*mxY);
+                ctx.fillText("STALL", col2 + 450*mxX, mTop + 295*mxY);
+                ctx.fillText("ASSOC", col2 + 65*mxX, mTop + 300*mxY);
+                ctx.fillText("SMUGGLER", col2 + 265*mxX, mTop + 270*mxY);
+                ctx.fillText("CAVE", col2 + 280*mxX, mTop + 15*mxY);
+            } 
+            else {
+                let nList = game.nodes[game.currentArea];
+                if (nList) {
+                    nList.forEach(b => {
+                        if (b.active) sharpRect(col2 + b.x*mxX - 2, mTop + b.y*mxY - 2, 4, 4, C.sand);
+                    });
+                    ctx.fillStyle = C.sand; ctx.font = 'bold 8px sans-serif';
+                    let activeCount = nList.filter(n => n.active).length;
+                    ctx.fillText(`[${activeCount} RAW ORE NODES LEFT]`, col2 + 10, mTop + 20);
+                }
+            }
+
+            let sameMap = false;
+            if (otherPlayer && otherPlayer.map === game.map) {
+                if (game.map === 'CAVE') {
+                    if (otherPlayer.currentArea === game.currentArea) sameMap = true;
+                } else {
+                    sameMap = true;
+                }
+            }
+            if (sameMap) {
+                let px = col2 + otherPlayer.x * mxX; let py = mTop + otherPlayer.y * mxY;
+                ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI*2); ctx.fillStyle=C.purple; ctx.fill();
+                ctx.fillStyle = C.purple; ctx.font = 'bold 8px sans-serif';
+                ctx.fillText(`PEER`, px + 6, py + 3);
+            }
+
+            let hx = col2 + game.player.x * mxX; let hy = mTop + game.player.y * mxY;
+            ctx.beginPath(); ctx.arc(hx, hy, 4, 0, Math.PI*2); ctx.fillStyle='#00bfff'; ctx.fill();
+            ctx.fillStyle = '#00bfff'; ctx.font = 'bold 8px sans-serif';
+            ctx.fillText("YOU", hx + 6, hy + 3);
+            
+            ctx.fillStyle = '#5c7290'; ctx.font = 'bold 8px sans-serif';
+            ctx.fillText("LEGEND: ■ Local Player  ■ Net Teammate  ■ Ore Node", col2, by + 335);
+        }
 
         function update() {
             game.tick++; if(game.player.mineAnim > 0) game.player.mineAnim--;
@@ -816,75 +1302,124 @@
             if(game.tick % 10 === 0 && game.stamina < game.maxStamina) { game.stamina++; }
 
             tickMarket();
-           
-            // Sync Multiplayer data over WebRTC
+            
             if (peerConn && peerConn.open && game.tick % 2 === 0) {
                 peerConn.send({
                     type: 'sync',
                     player: {
                         x: game.player.x, y: game.player.y, dir: game.player.dir,
-                        mineAnim: game.player.mineAnim, map: game.map, walking: game.walking
+                        mineAnim: game.player.mineAnim, map: game.map, walking: game.walking, currentArea: game.currentArea
                     }
                 });
             }
 
-            if(game.forgePhase === 'heat') { game.heat = Math.max(0, game.heat - 0.5); document.getElementById('heat-fill').style.width = game.heat + '%'; if(game.heat >= 70 && game.heat <= 90) { game.score += 0.6; game.heatTimer++; if(game.heatTimer > 100) startPhase('hammer'); } } else if(game.forgePhase === 'hammer') { game.hammerCursor += game.hammerDir; if(game.hammerCursor > 212 || game.hammerCursor < 0) game.hammerDir *= -1; document.getElementById('hammer-cursor').style.left = game.hammerCursor + 'px'; } else if(game.forgePhase === 'quench') { if(keys['Space']) { game.quenchProgress += 1.5; game.score += 0.2; if(game.tick%3===0) createParticles(300+(Math.random()-0.5)*40, 200, C.white, 2); document.getElementById('quench-fill').style.width = game.quenchProgress + '%'; if(game.quenchProgress >= 100) finishForge(); } else game.quenchProgress = Math.max(0, game.quenchProgress - 0.7); } else if(game.testPhase) { game.hammerCursor += game.hammerDir; if(game.hammerCursor > 212 || game.hammerCursor < 0) game.hammerDir *= -1; document.getElementById('test-cursor').style.left = game.hammerCursor + 'px'; }
+            if(game.forgePhase === 'heat') { 
+                game.heat = Math.max(0, game.heat - 0.5); document.getElementById('heat-fill').style.width = game.heat + '%'; 
+                if(game.heat >= 70 && game.heat <= 90) { game.score += 0.6; game.heatTimer++; if(game.heatTimer > 100) startPhase('hammer'); } 
+            } else if(game.forgePhase === 'hammer') { 
+                game.hammerCursor += game.hammerDir; if(game.hammerCursor > 212 || game.hammerCursor < 0) game.hammerDir *= -1; document.getElementById('hammer-cursor').style.left = game.hammerCursor + 'px'; 
+            } else if(game.forgePhase === 'quench') { 
+                if(keys['Space']) { game.quenchProgress += 1.5; game.score += 0.2; if(game.tick%3===0) createParticles(300+(Math.random()-0.5)*40, 200, C.white, 2); document.getElementById('quench-fill').style.width = game.quenchProgress + '%'; if(game.quenchProgress >= 100) finishForge(); } else game.quenchProgress = Math.max(0, game.quenchProgress - 0.7); 
+            } else if(game.testPhase) { 
+                game.hammerCursor += game.hammerDir; if(game.hammerCursor > 212 || game.hammerCursor < 0) game.hammerDir *= -1; document.getElementById('test-cursor').style.left = game.hammerCursor + 'px'; 
+            }
 
             if(!game.forgePhase && !game.testPhase && !game.isMenuOpen) {
-                let mv = false; if(keys['KeyW']) { game.player.y -= game.player.speed; mv=true; } if(keys['KeyS']) { game.player.y += game.player.speed; mv=true; } if(keys['KeyA']) { game.player.x -= game.player.speed; game.player.dir = -1; mv=true; } if(keys['KeyD']) { game.player.x += game.player.speed; game.player.dir = 1; mv=true; } game.walking = mv;
-                if(game.map === 'CAVE' && game.player.y > 370) { game.map = 'OUTDOOR'; game.player.y = 40; } else if(game.map === 'OUTDOOR' && game.player.y < 20 && game.player.x > 250 && game.player.x < 330) { openMineSelector(); }
-                if(game.player.x < 0) game.player.x = 580; if(game.player.x > 600) game.player.x = 0; if(game.player.y < 0) game.player.y = 0; if(game.player.y > 380) game.player.y = 380;
+                let mv = false; 
+                if(keys['KeyW']) { game.player.y -= game.player.speed; mv=true; } 
+                if(keys['KeyS']) { game.player.y += game.player.speed; mv=true; } 
+                if(keys['KeyA']) { game.player.x -= game.player.speed; game.player.dir = -1; mv=true; } 
+                if(keys['KeyD']) { game.player.x += game.player.speed; game.player.dir = 1; mv=true; } 
+                game.walking = mv;
+                
+                if(game.map === 'CAVE' && game.player.y > 370) { game.map = 'OUTDOOR'; game.player.y = 40; } 
+                else if(game.map === 'OUTDOOR' && game.player.y < 20 && game.player.x > 250 && game.player.x < 330) { openMineSelector(); }
+                
+                if(game.player.x < 0) game.player.x = 580; if(game.player.x > 600) game.player.x = 0; 
+                if(game.player.y < 0) game.player.y = 0; if(game.player.y > 380) game.player.y = 380;
             }
 
             ORES.forEach(o => { let id = o === 'gold' ? 'gold-ore-v' : `${o}-v`; if(document.getElementById(id)) document.getElementById(id).innerText = game.inv[o]; });
-            let bagTotal = Object.values(game.inv).reduce((a,b)=>a+b,0) + game.finishedItems.length;
+            let bagTotal = Object.values(game.inv).reduce((a,b)=>Number(a)+Number(b),0) + (game.finishedItems ? game.finishedItems.length : 0);
+            
             document.getElementById('stamina-v').innerText = `${Math.floor(game.stamina)}/${game.maxStamina}`;
             let stamCol = C.peach; if (game.stamina < 20) stamCol = C.red; else if (game.stamina >= game.maxStamina) stamCol = C.green;
+            
             document.getElementById('stamina-v').style.color = stamCol;
-            document.getElementById('bag-v').innerText = `🎒 ${bagTotal}`; document.getElementById('coins-v').innerText = game.coins; document.getElementById('pick-v').innerText = game.pick;
-            document.getElementById('license-lvl-v').innerText = game.licenseLvl; document.getElementById('mine-lvl-v').innerText = game.miningLvl; document.getElementById('mine-xp-v').innerText = game.miningXp; document.getElementById('mine-req-v').innerText = game.miningLvl * 100; document.getElementById('forge-lvl-v').innerText = game.forgeLvl; document.getElementById('forge-xp-v').innerText = game.forgeXp; document.getElementById('forge-req-v').innerText = game.forgeLvl * 100;
+            document.getElementById('bag-v').innerText = `🎒 ${bagTotal}`; 
+            document.getElementById('coins-v').innerText = game.coins; 
+            document.getElementById('pick-v').innerText = game.pick;
+            document.getElementById('license-lvl-v').innerText = game.licenseLvl; 
+            document.getElementById('mine-lvl-v').innerText = game.miningLvl; 
+            document.getElementById('mine-xp-v').innerText = game.miningXp; 
+            document.getElementById('mine-req-v').innerText = game.miningLvl * 100; 
+            document.getElementById('forge-lvl-v').innerText = game.forgeLvl; 
+            document.getElementById('forge-xp-v').innerText = game.forgeXp; 
+            document.getElementById('forge-req-v').innerText = game.forgeLvl * 100;
         }
 
         function draw() {
             ctx.clearRect(0,0,600,400);
-            if (game.map === 'CAVE') {
-                ctx.fillStyle = C.d_blue; ctx.fillRect(0,0,600,400); pRect(270, 360, 60, 40, C.black); game.nodes.forEach(drawNode); ctx.fillStyle=C.white; ctx.font="bold 10px Courier"; ctx.fillText(`AREA ${game.currentArea}`, 10, 20);
-            } else if (game.map === 'OUTDOOR') {
-                ctx.fillStyle = C.d_green; ctx.fillRect(0,0,600,400); pRect(270, 40, 60, 360, C.dirt); pRect(250, 0, 100, 20, C.d_gray); pRect(270, 0, 60, 40, C.black); ctx.fillStyle=C.white; ctx.font="bold 10px Courier"; ctx.fillText("CAVE (E)", 275, 15);
+            if (game.map === 'CAVE') { 
+                ctx.fillStyle = C.d_blue; ctx.fillRect(0,0,600,400); pRect(270, 360, 60, 40, C.black); 
+                game.nodes[game.currentArea].forEach(drawNode); 
+                ctx.fillStyle=C.white; ctx.font="bold 10px sans-serif"; ctx.fillText(`AREA ${game.currentArea}`, 10, 20); 
+            } 
+            else if (game.map === 'OUTDOOR') {
+                ctx.fillStyle = C.d_green; ctx.fillRect(0,0,600,400); pRect(270, 40, 60, 360, C.dirt); pRect(250, 0, 100, 20, C.d_gray); pRect(270, 0, 60, 40, C.black); ctx.fillStyle=C.white; ctx.font="bold 10px sans-serif"; ctx.fillText("CAVE (E)", 275, 15);
                 drawTree(20, 150); drawTree(200, 150); drawTree(370, 150); drawTree(550, 150);
                 pRect(50, 30, 100, 100, C.d_gray); pRect(90, 70, 30, 40, C.brown); pRect(85, 55, 40, 15, C.l_gray); pRect(80, 58, 5, 12, C.l_gray); pRect(75, 61, 5, 9, C.l_gray); pRect(95, 70, 20, 8, C.mithril); pRect(60, 90, 20, 20, C.brown); pRect(62, 92, 16, 16, C.blue); pRect(60, 90, 20, 3, '#666'); pRect(60, 100, 20, 3, '#666'); ctx.fillStyle=C.white; ctx.fillText("FORGE (E)", 75, 25);
                 pRect(50, 260, 80, 80, C.l_gray); pRect(45, 250, 90, 20, C.blue); pRect(80, 300, 20, 40, C.brown); pRect(82, 320, 4, 4, C.yellow); pRect(60, 280, 15, 15, C.black); pRect(62, 282, 11, 11, C.white); pRect(105, 280, 15, 15, C.black); pRect(107, 282, 11, 11, C.white); ctx.fillStyle=C.white; ctx.fillText("ASSOC (E)", 65, 245);
                 pRect(420, 30, 80, 50, 'rgba(0,0,0,0.2)'); pRect(415, 40, 90, 15, C.blue); pRect(415, 55, 90, 5, C.d_blue); pRect(425, 55, 5, 40, C.brown); pRect(490, 55, 5, 40, C.brown); pRect(420, 70, 80, 15, C.d_brown); pRect(455, 73, 16, 4, C.l_gray); pRect(461, 65, 4, 15, C.brown); ctx.fillStyle=C.white; ctx.fillText("TOOLS (E)", 435, 35);
                 pRect(420, 240, 100, 100, C.mithril); pRect(425, 245, 90, 90, C.d_purple); pRect(430, 250, 80, 80, C.mithril); pRect(430, 285, 80, 10, C.brown); pRect(435, 295, 5, 20, C.d_brown); pRect(500, 295, 5, 20, C.d_brown); pRect(440, 275, 10, 10, C.blue); pRect(444, 271, 2, 4, C.l_gray); pRect(480, 278, 6, 7, C.brown); pRect(490, 276, 8, 9, C.yellow); pRect(460, 270, 20, 20, C.d_green); pRect(462, 255, 16, 16, C.peach); pRect(462, 255, 16, 4, C.d_gray); pRect(460, 257, 2, 8, C.d_gray); pRect(478, 257, 2, 8, C.d_gray); pRect(466, 267, 8, 4, C.l_gray); pRect(458, 251, 24, 6, C.red); pRect(464, 245, 12, 6, C.red); ctx.fillStyle=C.black; ctx.fillText("STALL (E)", 445, 305);
-               
+                
                 // --- SMUGGLER'S DEN ---
-                pRect(260, 240, 80, 60, '#111');
-                pRect(265, 245, 70, 20, '#222');
-                pRect(290, 265, 20, 20, C.d_purple); // Shady NPC
-                pRect(292, 270, 16, 4, C.black);     // Masked eyes
-                pRect(296, 275, 4, 4, C.l_gray);     // Mask
-                ctx.fillStyle = C.l_gray;
-                ctx.fillText("SMUGGLER (E)", 265, 315);
+                pRect(260, 240, 80, 60, '#111'); pRect(265, 245, 70, 20, '#222'); pRect(290, 265, 20, 20, C.d_purple); pRect(292, 270, 16, 4, C.black); pRect(296, 275, 4, 4, C.l_gray); ctx.fillStyle = C.l_gray; ctx.fillText("SMUGGLER (E)", 265, 315);
             }
-           
-            drawParticles();
-            drawPlayer(game.player.x, game.player.y, game, false);
-           
-            // Draw Peer2Peer Player
+            
+            drawParticles(); 
+            drawPlayer(game.player.x, game.player.y, game, false); 
+            
+            let sameMap = false;
             if (otherPlayer && otherPlayer.map === game.map) {
+                if (game.map === 'CAVE') {
+                    if (otherPlayer.currentArea === game.currentArea) sameMap = true;
+                } else {
+                    sameMap = true;
+                }
+            }
+            if (sameMap) {
                 drawPlayer(otherPlayer.x, otherPlayer.y, { player: otherPlayer, walking: otherPlayer.walking, tick: game.tick }, true);
             }
-           
-            drawFloatingTexts();
+            
+            drawFloatingTexts(); 
             const g = ctx.createRadialGradient(300,200,100,300,200,350); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.5)'); ctx.fillStyle=g; ctx.fillRect(0,0,600,400);
+
+            // MAP OVERLAY CALLS
+            drawMinimapHUD();
+            drawWorldMapOverlay();
+
             update(); requestAnimationFrame(draw);
         }
 
         function pRect(x,y,w,h,c) { ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h)); }
         function createParticles(x,y,col,count) { for(let i=0;i<count;i++) game.particles.push({x,y,vx:(Math.random()-0.5)*5,vy:(Math.random()-0.5)*5,life:25,col}); }
-        function drawParticles() { game.particles.forEach((p,i)=>{ p.x+=p.vx;p.y+=p.vy;p.life--; ctx.fillStyle=p.col;ctx.fillRect(p.x,p.y,3,3); if(p.life<=0)game.particles.splice(i,1); }); }
+        function drawParticles() { 
+            for (let i = game.particles.length - 1; i >= 0; i--) {
+                let p = game.particles[i];
+                p.x += p.vx; p.y += p.vy; p.life--; 
+                ctx.fillStyle = p.col; ctx.fillRect(p.x, p.y, 3, 3); 
+                if (p.life <= 0) game.particles.splice(i, 1);
+            }
+        }
         function dist(x1,y1,x2,y2) { return Math.sqrt((x2-x1)**2+(y2-y1)**2); }
-        function closeMenus() { game.isMenuOpen = false; const menus = document.querySelectorAll('.game-menu'); menus.forEach(m => m.style.display = 'none'); game.testPhase = false; }
+        function closeMenus() { 
+            if (game.tradeState && game.tradeState.active) {
+                game.finishedItems.push(...game.tradeState.myOffer.items); game.tradeState.myOffer.items = []; game.tradeState.active = false;
+                if(peerConn && peerConn.open) peerConn.send({ type: 'trade_cancel' });
+            }
+            game.isMenuOpen = false; const menus = document.querySelectorAll('.game-menu'); menus.forEach(m => m.style.display = 'none'); game.testPhase = false; 
+        }
     </script>
 </body>
 </html>
