@@ -1,0 +1,1771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Master Blacksmith: Widescreen Multiplayer Update</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { background: #1a1a1c; color: #d7d7d8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 10px; overflow: hidden; }
+        
+        #ui-bar { width: 800px; display: flex; flex-direction: column; background: #2b2b2e; border: 4px solid #444449; border-bottom: none; font-size: 0.70rem; font-weight: bold; }
+        .ui-row { display: flex; flex-wrap: wrap; justify-content: space-around; padding: 6px 10px; gap: 5px; }
+        .ui-row:first-child { border-bottom: 2px solid #1a1a1c; background: #222225; }
+        
+        canvas { background: #222225; border: 4px solid #444449; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        
+        /* Unified Menu Styling */
+        .game-menu { position: absolute; top: 220px; left: 50%; transform: translate(-50%, -50%); background: #2b2b2e; border: 4px solid #444449; padding: 20px; display: none; width: 340px; z-index: 10; text-align: center; box-shadow: 0 0 0 4px #1a1a1c, 0 10px 30px rgba(0,0,0,0.8); }
+        
+        #forge-menu { width: 440px; border-color: #ffac30; }
+        #sell-menu { border-color: #00e436; width: 480px; }
+        #buy-menu { border-color: #29adff; }
+        #wholesale-menu { border-color: #7E2553; }
+        #miner-assoc-menu { border-color: #83769c; }
+        #mine-selector-menu { border-color: #5f574f; }
+        #system-menu { border-color: #C2C3C7; width: 280px; }
+        #trade-menu { border-color: #29adff; width: 500px; }
+        #decor-menu { border-color: #ff77a8; }
+        
+        /* Backpack Expanded for Paper Doll */
+        #backpack-menu { border-color: #ab5236; width: 580px; }
+        .backpack-layout { display: flex; gap: 15px; text-align: left; height: 320px; margin-bottom: 15px; }
+        
+        /* Paper Doll Equipment Layout */
+        .equipment-panel { width: 220px; background: #222; border: 2px solid #5f574f; padding: 10px; display: flex; flex-direction: column; align-items: center; justify-content: space-around; position: relative; border-radius: 8px; }
+        .doll-bg { position: absolute; width: 80px; height: 210px; background: #1a1a1c; border-radius: 40px; z-index: 0; opacity: 0.5; border: 2px dashed #444; }
+        .equip-slot { background: #36363b; border: 2px solid #444449; border-radius: 4px; padding: 5px; width: 140px; z-index: 1; text-align: center; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; min-height: 38px; display:flex; flex-direction: column; justify-content: center;}
+        .equip-slot:hover { border-color: #ff004d; background: #4a202a; }
+        .equip-slot.filled { border-color: #ffac30; background: #444449; cursor: pointer; }
+        .equip-slot.filled:hover { border-color: #ff004d; }
+        .slot-label { font-size: 0.65rem; color: #888; margin-bottom: 2px; text-transform: uppercase; }
+        .slot-name { font-weight: bold; color: #fff; }
+        .slot-stats { font-size: 0.6rem; color: #00e436; }
+
+        /* Inventory List */
+        .inventory-panel { flex-grow: 1; display: flex; flex-direction: column; }
+        #backpack-list { flex-grow: 1; overflow-y: auto; padding-right: 5px; }
+
+        #complex-forge, #test-menu { width: 340px; border-color: #ffac30; }
+        #forge-result { width: 340px; border-color: #00e436; z-index: 20; }
+
+        #result-icon-container { background: #111; border: 4px solid #444449; width: 128px; height: 128px; margin: 10px auto; display: flex; align-items: center; justify-content: center; }
+
+        .inventory-item { background: #36363b; margin: 8px 0; padding: 10px; border: 2px solid #444449; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center; }
+        .inventory-item:hover:not(.disabled-item) { border-color: #ffac30; background: #444449; transform: scale(1.02); }
+        .disabled-item { opacity: 0.5; cursor: not-allowed; }
+        
+        #material-setup-list { max-height: 150px; overflow-y: auto; padding-right: 5px; }
+        .material-row { background: #36363b; margin: 6px 0; padding: 6px; border: 2px solid #444449; display: flex; justify-content: space-between; align-items: center; font-weight:bold; }
+        
+        .btn-qty { background: #5f574f; color: white; border: 2px solid #111; padding: 2px 8px; font-weight: bold; cursor: pointer; font-size: 1rem; }
+        .btn-qty:hover { background: #ffac30; color: #000; }
+
+        .q-tag { padding: 2px 6px; border-radius: 3px; font-size: 0.6rem; font-weight: bold; text-transform: uppercase; }
+        .q-common { background: #5f574f; color: #fff; }
+        .q-rare { background: #29adff; color: #fff; }
+        .q-epic { background: #83769c; color: #fff; }
+        .q-legendary { background: #38b764; color: #fff; box-shadow: 0 0 8px #38b764; }
+        .q-masterwork { background: #ffa300; color: #000; box-shadow: 0 0 8px #ffec27; }
+        
+        .bar-container { width: 220px; height: 24px; background: #111; border: 3px solid #d7d7d8; margin: 10px auto; position: relative; overflow: hidden; }
+        #heat-fill { width: 0%; height: 100%; background: linear-gradient(to right, #ff004d, #ffa300); }
+        #quench-fill { width: 0%; height: 100%; background: #29adff; box-shadow: 0 0 10px #29adff; }
+        .target-line { position: absolute; left: 70%; width: 20%; height: 100%; border: 2px solid #fff; opacity: 0.4; z-index: 1; }
+        
+        .hammer-bar { width: 220px; height: 14px; background: #111; border: 3px solid #d7d7d8; margin: 5px auto; position: relative; }
+        .cursor { width: 8px; height: 100%; background: #fff; position: absolute; box-shadow: 0 0 5px #fff; }
+        .target-zone { width: 35px; height: 100%; background: #ffac30; position: absolute; left: 90px; }
+        
+        .gold-v { color: #ffec27; text-shadow: 1px 1px #000; }
+        .xp-text { color: #29adff; font-weight: normal; font-size: 0.7rem; }
+        .controls-hint { color: #666; font-size: 0.7rem; margin-top: 10px; font-style: italic; }
+        button { font-family: inherit; font-weight: bold; border: 4px solid #111; padding: 8px; cursor: pointer; transition: 0.1s; width: 100%; margin-top: 5px; }
+        button:active { transform: scale(0.95); }
+        
+        .forge-setup-container { display: flex; gap: 15px; align-items: center; justify-content: center; }
+        #crucibleCanvas { background: #222; border: 3px solid #111; border-radius: 8px; box-shadow: inset 0 0 10px #000; }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1a1a1c; }
+        ::-webkit-scrollbar-thumb { background: #444449; }
+        ::-webkit-scrollbar-thumb:hover { background: #ffac30; }
+        
+        .sys-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 5px; }
+
+        /* Chat System UI */
+        #chat-container { position: absolute; bottom: 10px; left: 10px; width: 250px; background: rgba(0,0,0,0.6); border: 2px solid #444; border-radius: 4px; display: flex; flex-direction: column; z-index: 5; pointer-events: none; }
+        #chat-messages { height: 100px; overflow-y: auto; padding: 5px; font-size: 0.65rem; color: #fff; display: flex; flex-direction: column; gap: 2px; pointer-events: auto; text-align: left; font-family: inherit; }
+        #chat-input-area { display: flex; padding: 2px; border-top: 1px solid #444; pointer-events: auto; }
+        #chat-input { background: #111; border: 1px solid #333; color: #fff; width: 100%; font-family: inherit; font-size: 0.65rem; padding: 3px; outline: none; }
+        .chat-msg { word-wrap: break-word; }
+        .chat-me { color: #00e436; }
+        .chat-them { color: #29adff; }
+        .chat-sys { color: #ffccaa; font-style: italic; }
+        
+        #chat-messages::-webkit-scrollbar { width: 4px; }
+        #chat-messages::-webkit-scrollbar-track { background: transparent; }
+        #chat-messages::-webkit-scrollbar-thumb { background: #444; }
+    </style>
+</head>
+<body>
+
+    <div id="ui-bar">
+        <div class="ui-row">
+            <span>❤️ HP: <b id="hp-v" style="color:#ff004d">100/100</b></span>
+            <span>⚡ STAMINA: <b id="stamina-v" style="color:#ffccaa">100/100</b></span>
+            <span>COAL: <b id="coal-v" style="color:#c2c3c7">0</b></span>
+            <span>TIN: <b id="tin-v" style="color:#9badb7">0</b></span>
+            <span>COPPER: <b id="copper-v" style="color:#d95763">0</b></span>
+            <span>IRON: <b id="iron-v" style="color:#ffccaa">0</b></span>
+            <span>SILVER: <b id="silver-v" style="color:#e7eaf6">0</b></span>
+            <span>GOLD: <b id="gold-ore-v" style="color:#ffec27">0</b></span>
+            <span>MITHRIL: <b id="mithril-v" style="color:#5fcde4">0</b></span>
+            <span>ADAMANT: <b id="adamant-v" style="color:#38b764">0</b></span>
+        </div>
+        <div class="ui-row">
+            <span id="bag-v" style="color:#ab5236; cursor:pointer;" onclick="toggleBackpack()" title="Click to open Backpack">🎒 0</span>
+            <span id="sys-v" style="color:#C2C3C7; cursor:pointer;" onclick="openSystemMenu()" title="Open Save/Settings">⚙️ SYSTEM</span>
+            <span>COINS: <b id="coins-v" class="gold-v">0</b></span>
+            <span>PICK: <b id="pick-v" style="color:#29adff">Stone</b></span>
+            <span>📜 LICENCE: <b id="license-lvl-v" style="color:#83769c">1</b></span>
+            <span>⛏️ MINE: <b id="mine-lvl-v" style="color:#00e436">1</b> <span class="xp-text">(<span id="mine-xp-v">0</span>/<span id="mine-req-v">100</span>)</span></span>
+            <span>⚒️ FORGE: <b id="forge-lvl-v" style="color:#ffac30">1</b> <span class="xp-text">(<span id="forge-xp-v">0</span>/<span id="forge-req-v">100</span>)</span></span>
+        </div>
+    </div>
+
+    <div style="position: relative; width: 800px; height: 400px; margin: 10px 0;">
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <div id="chat-container">
+            <div id="chat-messages"></div>
+            <div id="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Press Enter to chat..." autocomplete="off">
+            </div>
+        </div>
+    </div>
+
+    <div id="backpack-menu" class="game-menu">
+        <h3 style="color:#ab5236; margin-top:0;">🎒 EQUIPMENT & INVENTORY</h3>
+        <div class="backpack-layout">
+            <div class="equipment-panel">
+                <div class="doll-bg"></div>
+                <div id="slot-head" class="equip-slot" onclick="unequipItem('head')" title="Click to unequip">
+                    <div class="slot-label">🪖 HEAD</div><div class="slot-name" style="color:#666;">Empty</div>
+                </div>
+                <div id="slot-neck" class="equip-slot" onclick="unequipItem('neck')" title="Click to unequip">
+                    <div class="slot-label">📿 NECK</div><div class="slot-name" style="color:#666;">Empty</div>
+                </div>
+                <div id="slot-body" class="equip-slot" onclick="unequipItem('body')" title="Click to unequip">
+                    <div class="slot-label">👕 BODY</div><div class="slot-name" style="color:#666;">Empty</div>
+                </div>
+                <div id="slot-hand" class="equip-slot" onclick="unequipItem('hand')" title="Click to unequip">
+                    <div class="slot-label">💍 HAND</div><div class="slot-name" style="color:#666;">Empty</div>
+                </div>
+                <div id="slot-weapon" class="equip-slot" onclick="unequipItem('weapon')" title="Click to unequip">
+                    <div class="slot-label">⚔️ WEAPON</div><div class="slot-name" style="color:#666;">Empty</div>
+                </div>
+            </div>
+            <div class="inventory-panel">
+                <div style="font-size:0.75rem; color:#aaa; margin-bottom:5px; border-bottom:1px solid #444;">YOUR BACKPACK</div>
+                <div id="backpack-list"></div>
+            </div>
+        </div>
+        <button onclick="closeMenus()" style="background:#5f574f; color:white;">CLOSE BACKPACK</button>
+    </div>
+
+    <div id="trade-menu" class="game-menu">
+        <h3 style="color:#29adff; margin-top:0;">🤝 PLAYER TRADE</h3>
+        <div style="display:flex; gap:10px; height:180px;">
+            <div style="flex:1; background:#222; border:2px solid #5f574f; padding:5px; display:flex; flex-direction:column;">
+                <div style="color:#00e436; font-size:0.75rem; font-weight:bold;">YOUR OFFER</div>
+                <div style="margin:5px 0;">
+                    <button onclick="modifyTradeCoins(-100)" style="width:auto; padding:2px 6px; display:inline; margin:0;">-100</button>
+                    <span class="gold-v" id="trade-my-coins-v" style="display:inline-block; width:50px; text-align:center;">0 C</span>
+                    <button onclick="modifyTradeCoins(100)" style="width:auto; padding:2px 6px; display:inline; margin:0;">+100</button>
+                </div>
+                <div id="trade-my-items" style="flex:1; overflow-y:auto; border-top:1px solid #444; text-align:left;"></div>
+            </div>
+            <div style="flex:1; background:#222; border:2px solid #5f574f; padding:5px; display:flex; flex-direction:column;">
+                <div style="color:#29adff; font-size:0.75rem; font-weight:bold;">THEIR OFFER</div>
+                <div style="margin:5px 0; padding:4px 0;">
+                    <span class="gold-v" id="trade-their-coins-v" style="display:inline-block; width:50px; text-align:center;">0 C</span>
+                </div>
+                <div id="trade-their-items" style="flex:1; overflow-y:auto; border-top:1px solid #444; text-align:left;"></div>
+            </div>
+        </div>
+        <div style="font-size:0.65rem; color:#aaa; margin-top:10px; text-align:left; font-weight:bold;">YOUR BACKPACK (CLICK TO OFFER):</div>
+        <div id="trade-inventory" style="height:90px; overflow-y:auto; background:#111; padding:5px; border:2px solid #444; text-align:left; display:flex; flex-wrap:wrap; gap:5px; align-content:flex-start;"></div>
+        
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <button id="btn-trade-ready" onclick="toggleTradeReady()" style="background:#ffa300; color:black; flex:1; margin:0;">CLICK TO READY</button>
+            <button onclick="closeMenus()" style="background:#ff004d; color:white; flex:1; margin:0;">CANCEL</button>
+        </div>
+    </div>
+
+    <div id="system-menu" class="game-menu">
+        <h3 style="color:#C2C3C7; margin-top:0;">⚙️ SYSTEM MENU</h3>
+        
+        <div style="font-size: 0.65rem; color:#888; text-align:left; margin: 10px 0 5px 0; font-weight: bold;">P2P MULTIPLAYER (NO SERVER)</div>
+        <div class="sys-grid">
+            <button onclick="hostMultiplayer()" style="background:#83769c; color:white; font-size:0.7rem; padding:5px;">📡 HOST GAME</button>
+            <button onclick="joinMultiplayer()" style="background:#29adff; color:white; font-size:0.7rem; padding:5px;">🤝 JOIN GAME</button>
+        </div>
+        <div id="mp-status" style="font-size: 0.65rem; color:#ffec27; margin-top:5px;">Status: Offline</div>
+
+        <div style="font-size: 0.65rem; color:#888; text-align:left; margin: 15px 0 5px 0; font-weight: bold;">LOCAL SAVING</div>
+        <div class="sys-grid">
+            <button onclick="saveGame()" style="background:#00e436; color:white; font-size:0.7rem; padding:5px;">💾 BROWSER SAVE</button>
+            <button onclick="loadGame()" style="background:#29adff; color:white; font-size:0.7rem; padding:5px;">📂 BROWSER LOAD</button>
+        </div>
+
+        <div style="font-size: 0.65rem; color:#888; text-align:left; margin: 10px 0 5px 0; font-weight: bold;">SERVERLESS CLOUD SYNC</div>
+        <button onclick="generateCloudLink()" style="background:#ffa300; color:black; font-size:0.75rem; margin-bottom:5px;">🔗 GENERATE SHAREABLE WEB LINK</button>
+        <button onclick="importTextCode()" style="background:#83769c; color:white; font-size:0.75rem;">📥 IMPORT TEXT SAVE CODE</button>
+        <button onclick="wipeSave()" style="background:#ff004d; color:white; margin-top: 15px; font-size:0.7rem; padding:4px;">🗑️ WIPE LOCAL DATA</button>
+        <button onclick="closeMenus()" style="background:#5f574f; color:white; margin-top: 5px;">RESUME</button>
+    </div>
+
+    <div id="forge-menu" class="game-menu">
+        <h3 style="color:#ffac30; margin-top:0;">ADD MATERIALS</h3>
+        <div class="forge-setup-container">
+            <canvas id="crucibleCanvas" width="100" height="150"></canvas>
+            <div id="material-setup-list" style="flex-grow: 1;"></div>
+        </div>
+        <div style="display:flex; gap: 10px; margin-top:5px;">
+            <button onclick="startCustomForge()" style="background:#00e436; color:white; flex-grow:1;">IGNITE</button>
+            <button onclick="closeMenus()" style="background:#ff004d; color:white; flex-grow:1;">CANCEL</button>
+        </div>
+    </div>
+
+    <div id="sell-menu" class="game-menu">
+        <h3 style="color:#00e436; margin-top:0;">🎪 TOWN MARKET STALL</h3>
+        <div style="background:#111; padding:6px; margin-bottom:10px; font-size:0.75rem; display:flex; justify-content:space-between; font-weight:bold; border:2px solid #36363b;">
+            <span>🌟 POPULARITY: <b id="market-pop-v" style="color:#ffec27">100</b></span>
+            <span>⏱️ ATTRACTION SPEED: <b id="market-attract-v" style="color:#29adff">100%</b></span>
+        </div>
+        <div style="display: flex; gap: 10px; height: 230px; text-align: left;">
+            <div style="width: 50%; display: flex; flex-direction: column;">
+                <div style="font-size:0.65rem; color:#888; font-weight:bold; margin-bottom:4px;">YOUR INVENTORY (CLICK TO LIST):</div>
+                <div id="market-inventory-list" style="flex-grow:1; overflow-y: auto; background:#222; padding:4px; border:2px solid #444449;"></div>
+            </div>
+            <div style="width: 50%; background:#222; border:2px solid #444449; padding:6px; display:flex; flex-direction:column; justify-content:space-between; position:relative;">
+                <div id="market-listing-status" style="font-size:0.75rem; text-align:center;"></div>
+                <div id="market-npc-status" style="background:#111; border:2px solid #5f574f; padding:6px; font-size:0.7rem; display:none; flex-direction:column; justify-content:space-between; flex-grow:1; margin-top:6px;"></div>
+            </div>
+        </div>
+        <button onclick="closeMenus()" style="background:#5f574f; color:white; margin-top:12px;">LEAVE MARKET</button>
+    </div>
+
+    <div id="wholesale-menu" class="game-menu" style="border-color: #7E2553;">
+        <h3 style="color:#7E2553; margin-top:0;">🕵️ SMUGGLER'S DEN</h3>
+        <p style="font-size:0.7rem; color:#aaa; margin-top:-10px;">"Instant cash. 40% value. No reputation changes."</p>
+        <div id="wholesale-list" style="max-height: 220px; overflow-y: auto; margin-bottom:10px;"></div>
+        <button onclick="closeMenus()" style="background:#5f574f; color:white;">LEAVE</button>
+    </div>
+
+    <div id="buy-menu" class="game-menu"><h3 style="color:#29adff; margin-top:0;">TOOL SHOP</h3><div id="buy-list" style="max-height: 220px; overflow-y: auto; margin-bottom:10px;"></div><button onclick="closeMenus()" style="background:#5f574f; color:white;">LEAVE</button></div>
+    <div id="miner-assoc-menu" class="game-menu"><h3 style="color:#83769c; margin-top:0;">MINER ASSOCIATION</h3><p style="font-size:0.75rem; color:#aaa;">Prove your worth to access deeper caves.</p><div id="assoc-details" style="background:#111; padding:15px; border:2px solid #5f574f; margin-bottom:15px;"></div><button onclick="closeMenus()" style="background:#5f574f; color:white;">LEAVE</button></div>
+    <div id="mine-selector-menu" class="game-menu"><h3 style="color:#c2c3c7; margin-top:0;">CAVE ENTRANCE</h3><p style="font-size:0.75rem; color:#aaa;">Select your destination:</p><div id="mine-list" style="margin-bottom:10px;"></div><button onclick="closeMenus(); game.player.y = 40;" style="background:#5f574f; color:white;">STEP BACK</button></div>
+    
+    <div id="complex-forge" class="game-menu"><h3 id="forge-title" style="margin:0;">HEATING</h3><p id="forge-step-desc" style="font-size: 0.7rem; color: #aaa;">Pump bellows!</p><div class="work-zone"><div id="heat-ui"><div class="bar-container"><div class="target-line"></div><div id="heat-fill"></div></div><p>Tap <b style="color:#00e436">E</b> to Heat</p></div><div id="hammer-ui" style="display:none;"><div class="hammer-bar"><div id="hammer-target" class="target-zone"></div><div id="hammer-cursor" class="cursor"></div></div><p>Hit <b style="color:#00e436">SPACE</b> (<span id="hit-count">0</span>/3)</p></div><div id="quench-ui" style="display:none;"><div class="bar-container"><div id="quench-fill"></div></div><p>Hold <b style="color:#00e436">SPACE</b> to Quench</p></div></div></div>
+    <div id="test-menu" class="game-menu"><h3 style="color:#83769c; margin:0;">MINING TEST</h3><p style="font-size: 0.7rem; color: #aaa;">Hit SPACE when centered to crack the boulder!</p><div class="work-zone"><div class="hammer-bar"><div id="test-target" class="target-zone"></div><div id="test-cursor" class="cursor"></div></div><p>Hits Required: (<span id="test-hit-count">0</span>/3)</p></div></div>
+    <div id="forge-result" class="game-menu"><h3 id="result-title" style="color:#00e436; margin-top:0;">SUCCESS!</h3><div id="result-icon-container"></div><div id="result-details" style="background:#111; padding: 10px; margin: 10px 0; border: 2px solid #5f574f;"></div><button onclick="closeMenus()" style="background:#5f574f; color:white;">AWESOME</button></div>
+    
+    <div id="decor-menu" class="game-menu" style="border-color: #ff77a8;">
+        <h3 style="color:#ff77a8; margin-top:0;">🏡 ESTATE DECORATOR</h3>
+        <p style="font-size:0.7rem; color:#aaa; margin-top:-10px;">Craft and place decorations in your estate.</p>
+        <div id="decor-list" style="max-height: 220px; overflow-y: auto; margin-bottom:10px;"></div>
+        <button onclick="closeMenus()" style="background:#5f574f; color:white;">LEAVE</button>
+    </div>
+
+    <div class="controls-hint">WASD:Move | E:Interact/Mine | SPACE:Action/Attack | B:Bag | T:Trade | ENTER:Chat | M:Map | N:Minimap | H:Chat</div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const C = {
+            black: '#000', d_blue: '#1D2B53', d_purple: '#7E2553', d_green: '#008751',
+            brown: '#AB5236', d_gray: '#5F574F', l_gray: '#C2C3C7', white: '#FFF1E8',
+            red: '#FF004D', orange: '#FFA300', yellow: '#FFEC27', green: '#00E436',
+            blue: '#29ADFF', indigo: '#83769C', pink: '#FF77A8', peach: '#FFCCAA',
+            d_brown: '#593112', copper: '#d95763', mithril: '#5fcde4', dirt: '#8c7853',
+            tin: '#9badb7', silver: '#e7eaf6', adamant: '#38b764', bronze: '#cd7f32',
+            purple: '#83769C'
+        };
+
+        const shopItems = [ { name: 'Bronze', power: 3, price: 500 }, { name: 'Iron', power: 4, price: 1000 }, { name: 'Steel', power: 6, price: 2500 }, { name: 'Gold', power: 8, price: 5000 }, { name: 'Mithril', power: 12, price: 12000 }, { name: 'Adamant', power: 20, price: 30000 } ];
+        const licenseData = [ { id: 1, name: "Surface Tunnels", reqLvl: 1, cost: 0, ores: ['coal', 'tin', 'copper', 'iron'], color: C.l_gray }, { id: 2, name: "Silver Caverns", reqLvl: 5, cost: 1500, ores: ['iron', 'silver', 'gold', 'coal'], color: C.silver }, { id: 3, name: "The Deep Core", reqLvl: 12, cost: 8000, ores: ['mithril', 'adamant', 'gold', 'silver'], color: C.adamant } ];
+
+        const decorItems = [ 
+            { name: 'Torch', type: 'torch', cost: 10, mat: 'coal', matCost: 5 },
+            { name: 'Banner', type: 'banner', cost: 50, mat: 'copper', matCost: 5 },
+            { name: 'Stone Statue', type: 'statue', cost: 150, mat: 'iron', matCost: 10 },
+            { name: 'Potted Plant', type: 'plant', cost: 25, mat: 'tin', matCost: 2 } 
+        ];
+
+        let game = {
+            tick: 0, map: 'OUTDOOR', currentArea: 1, coins: 0, 
+            stamina: 100, maxStamina: 100,
+            maxHp: 100, 
+            inv: { coal: 0, tin: 0, copper: 0, iron: 0, silver: 0, gold: 0, mithril: 0, adamant: 0 },
+            finishedItems: [], equipment: { head: null, neck: null, body: null, hand: null, weapon: null }, 
+            pick: 'Stone', power: 1, miningLvl: 1, miningXp: 0, forgeLvl: 1, forgeXp: 0, licenseLvl: 1,
+            floatingTexts: [],
+            player: { x: 380, y: 100, w: 20, h: 26, speed: 4, dir: 1, walking: false, mineAnim: 0, hp: 100, attackTimer: 0, attackAnim: 0 },
+            nodes: { 1: [], 2: [], 3: [] }, particles: [], forgePhase: '', testPhase: false, isMenuOpen: false,
+            score: 0, heat: 0, heatTimer: 0, hammerHits: 0, hammerCursor: 0, hammerDir: 5, quenchProgress: 0, testHits: 0,
+            popularity: 100, marketItem: null, marketNpc: null, marketTimer: 0,
+            isHost: true, showMap: false, showMinimap: true, showChat: true,
+            decorations: [],
+            
+            tradeState: { active: false, myOffer: { coins: 0, items: [] }, theirOffer: { coins: 0, items: [] }, myReady: false, theirReady: false }
+        };
+
+        const ORES = ['coal', 'tin', 'copper', 'iron', 'silver', 'gold', 'mithril', 'adamant'];
+        let currentForgeMix = {}; ORES.forEach(o => currentForgeMix[o] = 0);
+
+        let peer = null;
+        let peerConn = null;
+        let otherPlayer = null;
+
+        function addChatMessage(msg, senderClass) {
+            const chatMessages = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = `chat-msg ${senderClass}`;
+            div.innerText = msg;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function hostMultiplayer() {
+            try {
+                game.isHost = true;
+                document.getElementById('mp-status').innerHTML = "Generating Server ID...";
+                peer = new Peer(); 
+                peer.on('open', (id) => {
+                    document.getElementById('mp-status').innerHTML = `Hosting! Share this ID with a friend:<br><b style="color:#00e436; font-size:0.8rem; user-select:all;">${id}</b>`;
+                });
+                peer.on('connection', (conn) => {
+                    peerConn = conn;
+                    setupConnection();
+                });
+                peer.on('error', (err) => {
+                    document.getElementById('mp-status').innerHTML = `<span style='color:#ff004d'>Error: ${err.type}</span>`;
+                });
+            } catch(e) {
+                console.error("PeerJS not loaded or blocked:", e);
+                alert("Multiplayer requires internet access and PeerJS to be unblocked.");
+            }
+        }
+
+        function joinMultiplayer() {
+            try {
+                game.isHost = false;
+                let targetId = prompt("Enter the Host's ID:");
+                if(!targetId) return;
+                document.getElementById('mp-status').innerHTML = "Connecting to Host...";
+                peer = new Peer();
+                peer.on('open', () => {
+                    peerConn = peer.connect(targetId);
+                    peerConn.on('open', () => {
+                        setupConnection();
+                    });
+                    peerConn.on('error', (err) => {
+                        document.getElementById('mp-status').innerHTML = `<span style='color:#ff004d'>Connection Failed</span>`;
+                    });
+                });
+            } catch(e) {
+                console.error("PeerJS Error:", e);
+            }
+        }
+
+        function setupConnection() {
+            document.getElementById('mp-status').innerHTML = "<span style='color:#00e436'>Connected! Player 2 is in your world.</span>";
+            addFloatingText(game.player.x, game.player.y - 20, "LINK ESTABLISHED!", C.green);
+            addChatMessage("System: Connected to Peer!", "chat-sys");
+            
+            if (game.isHost) {
+                // TRUE SYNC: Sends everything needed to completely load the host's world
+                peerConn.send({ 
+                    type: 'world_sync', 
+                    nodes: game.nodes, 
+                    decorations: game.decorations,
+                    hostMap: game.map,
+                    hostArea: game.currentArea,
+                    hostX: game.player.x,
+                    hostY: game.player.y
+                });
+            }
+
+            peerConn.on('data', (data) => {
+                if(data.type === 'sync') {
+                    otherPlayer = data.player;
+                } else if (data.type === 'world_sync') {
+                    // OVERWRITE local arrays with the host's exact world map
+                    game.nodes = data.nodes;
+                    if (data.decorations) game.decorations = data.decorations;
+                    game.map = data.hostMap;
+                    game.currentArea = data.hostArea;
+                    game.player.x = data.hostX;
+                    game.player.y = data.hostY + 25; // Spawn client just below host
+                    game.player.hp = game.maxHp;
+                    
+                    addFloatingText(game.player.x, game.player.y - 10, "JOINED HOST WORLD", C.green);
+                } else if (data.type === 'mine_node') {
+                    let nList = game.nodes[data.area];
+                    if (nList) {
+                        let n = nList[data.nodeIndex];
+                        if (n) {
+                            let wasActive = n.active;
+                            n.hp -= data.damage;
+                            n.shake = 8;
+                            let pCol = C.black; if(n.type==='iron') pCol = C.orange; else if(n.type==='gold') pCol = C.yellow; else if(n.type==='copper') pCol = C.copper; else if(n.type==='mithril') pCol = C.mithril; else if(n.type==='tin') pCol = C.tin; else if(n.type==='silver') pCol = C.silver; else if(n.type==='adamant') pCol = C.adamant;
+                            
+                            if (game.map === 'CAVE' && game.currentArea === data.area) {
+                                createParticles(n.x+16, n.y+16, pCol, 6);
+                            }
+                            
+                            if (n.hp <= 0 && wasActive) {
+                                n.active = false;
+                                if (game.isHost) {
+                                    setTimeout(() => {
+                                        let attempts = 0; let nx=0, ny=0;
+                                        while(attempts < 50) { 
+                                            nx = 50 + Math.random() * 500; ny = 50 + Math.random() * 250; 
+                                            let tooClose = nList.some(other => other.active && dist(nx, ny, other.x, other.y) < 60); 
+                                            if(ny < 330 && !tooClose) break; 
+                                            attempts++; 
+                                        } 
+                                        
+                                        let roll = Math.random(); let nodeType = 'coal';
+                                        if (data.area === 1) { if(roll > 0.95) nodeType = 'iron'; else if(roll > 0.75) nodeType = 'copper'; else if(roll > 0.50) nodeType = 'tin'; else nodeType = 'coal'; } 
+                                        else if (data.area === 2) { if(roll > 0.80) nodeType = 'gold'; else if(roll > 0.50) nodeType = 'silver'; else if(roll > 0.10) nodeType = 'iron'; else nodeType = 'coal'; } 
+                                        else if (data.area === 3) { if(roll > 0.70) nodeType = 'adamant'; else if(roll > 0.30) nodeType = 'mithril'; else if(roll > 0.10) nodeType = 'gold'; else nodeType = 'silver'; }
+
+                                        n.x = nx; n.y = ny; n.type = nodeType; n.hp = 5; n.mhp = 5; n.active = true; 
+                                        peerConn.send({ type: 'respawn_node', area: data.area, nodeIndex: data.nodeIndex, x: nx, y: ny, nodeType: nodeType, mhp: 5 });
+                                    }, 5000);
+                                }
+                            }
+                        }
+                    }
+                } else if (data.type === 'respawn_node') {
+                    let nList = game.nodes[data.area];
+                    if(nList && nList[data.nodeIndex]) { 
+                        let n = nList[data.nodeIndex];
+                        n.x = data.x; n.y = data.y; n.type = data.nodeType; n.hp = data.mhp; n.mhp = data.mhp; n.active = true; 
+                    }
+                } 
+                else if (data.type === 'trade_open') {
+                    if(!game.isMenuOpen && !game.forgePhase && !game.testPhase) {
+                        openTradeMenu();
+                    } else {
+                        peerConn.send({ type: 'trade_cancel' }); 
+                    }
+                }
+                else if (data.type === 'trade_update') {
+                    if(game.tradeState && game.tradeState.active) {
+                        game.tradeState.theirOffer = data.offer;
+                        game.tradeState.myReady = false;
+                        game.tradeState.theirReady = false;
+                        renderTradeMenu();
+                    }
+                }
+                else if (data.type === 'trade_ready') {
+                    if(game.tradeState && game.tradeState.active) {
+                        game.tradeState.theirReady = data.state;
+                        renderTradeMenu();
+                        checkTradeComplete();
+                    }
+                }
+                else if (data.type === 'trade_cancel') {
+                    if(game.tradeState && game.tradeState.active) {
+                        game.finishedItems.push(...game.tradeState.myOffer.items);
+                        game.tradeState.myOffer.items = [];
+                        game.tradeState.active = false;
+                        closeMenus();
+                        addFloatingText(game.player.x, game.player.y - 10, "TRADE CANCELLED", C.red);
+                    }
+                }
+                else if (data.type === 'chat') {
+                    addChatMessage("Peer: " + data.text, "chat-them");
+                }
+                else if (data.type === 'place_decor') {
+                    game.decorations.push(data.decor);
+                }
+                // ARENA PVP DAMAGE RECEIVER
+                else if (data.type === 'pvp_damage') {
+                    if (game.map === 'ARENA') {
+                        game.player.hp -= data.amt;
+                        addFloatingText(game.player.x, game.player.y - 20, `-${data.amt}`, C.red);
+                        createParticles(game.player.x, game.player.y, C.red, 15);
+                        
+                        if (game.player.hp <= 0) {
+                            game.player.hp = game.maxHp;
+                            game.map = 'OUTDOOR'; // Respawn to Town
+                            game.player.x = 400;
+                            game.player.y = 200;
+                            addFloatingText(game.player.x, game.player.y - 20, "DEFEATED", C.red);
+                            if (peerConn && peerConn.open) {
+                                peerConn.send({ type: 'chat', text: "I was defeated in the Arena!" });
+                            }
+                        }
+                    }
+                }
+            });
+            
+            peerConn.on('close', () => {
+                otherPlayer = null;
+                document.getElementById('mp-status').innerHTML = "<span style='color:#ff004d'>Disconnected from Player 2</span>";
+                addChatMessage("System: Peer disconnected.", "chat-sys");
+            });
+        }
+
+        function openTradeMenu() {
+            game.isMenuOpen = true;
+            game.tradeState = { active: true, myOffer: { coins: 0, items: [] }, theirOffer: { coins: 0, items: [] }, myReady: false, theirReady: false };
+            document.getElementById('trade-menu').style.display = 'block';
+            renderTradeMenu();
+        }
+
+        function renderTradeMenu() {
+            document.getElementById('trade-my-coins-v').innerText = game.tradeState.myOffer.coins + ' C';
+            document.getElementById('trade-their-coins-v').innerText = game.tradeState.theirOffer.coins + ' C';
+
+            const myItemsList = document.getElementById('trade-my-items');
+            myItemsList.innerHTML = '';
+            game.tradeState.myOffer.items.forEach((item, idx) => {
+                let div = document.createElement('div'); div.className = 'inventory-item'; div.style.padding = '4px 6px'; div.style.fontSize = '0.6rem'; div.style.margin = '2px 0'; div.style.display = 'flex'; div.style.justifyContent = 'space-between';
+                div.innerHTML = `<span><b>${item.name}</b> <span class="q-tag q-${item.quality.toLowerCase()}" style="font-size:0.5rem;">${item.quality}</span></span><span style="color:#ff004d; font-weight:bold; cursor:pointer;">[X]</span>`;
+                div.onclick = () => removeFromTrade(idx);
+                myItemsList.appendChild(div);
+            });
+
+            const theirItemsList = document.getElementById('trade-their-items');
+            theirItemsList.innerHTML = '';
+            game.tradeState.theirOffer.items.forEach(item => {
+                let div = document.createElement('div'); div.className = 'inventory-item'; div.style.padding = '4px 6px'; div.style.fontSize = '0.6rem'; div.style.margin = '2px 0';
+                div.innerHTML = `<span><b>${item.name}</b> <span class="q-tag q-${item.quality.toLowerCase()}" style="font-size:0.5rem;">${item.quality}</span></span>`;
+                theirItemsList.appendChild(div);
+            });
+
+            const invList = document.getElementById('trade-inventory');
+            invList.innerHTML = '';
+            game.finishedItems.forEach((item, idx) => {
+                let div = document.createElement('div'); div.className = 'inventory-item'; div.style.padding = '4px 6px'; div.style.fontSize = '0.6rem'; div.style.margin = '2px'; div.style.display = 'inline-block'; div.style.width = '45%';
+                div.innerHTML = `<b>${item.name}</b> <span class="q-tag q-${item.quality.toLowerCase()}" style="font-size:0.5rem; padding:1px 2px;">${item.quality}</span>`;
+                div.onclick = () => addToTrade(idx);
+                invList.appendChild(div);
+            });
+
+            const readyBtn = document.getElementById('btn-trade-ready');
+            if (game.tradeState.myReady) { readyBtn.innerText = "WAITING FOR OTHER..."; readyBtn.style.background = "#00e436"; } 
+            else { readyBtn.innerText = "CLICK TO READY"; readyBtn.style.background = "#ffa300"; }
+        }
+
+        function addToTrade(index) {
+            let item = game.finishedItems.splice(index, 1)[0];
+            game.tradeState.myOffer.items.push(item);
+            game.tradeState.myReady = false; game.tradeState.theirReady = false;
+            if(peerConn && peerConn.open) peerConn.send({ type: 'trade_update', offer: game.tradeState.myOffer });
+            renderTradeMenu();
+        }
+
+        function removeFromTrade(index) {
+            let item = game.tradeState.myOffer.items.splice(index, 1)[0];
+            game.finishedItems.push(item);
+            game.tradeState.myReady = false; game.tradeState.theirReady = false;
+            if(peerConn && peerConn.open) peerConn.send({ type: 'trade_update', offer: game.tradeState.myOffer });
+            renderTradeMenu();
+        }
+
+        function modifyTradeCoins(amount) {
+            let newAmount = game.tradeState.myOffer.coins + amount;
+            if (newAmount < 0) newAmount = 0; if (newAmount > game.coins) newAmount = game.coins; 
+            game.tradeState.myOffer.coins = newAmount;
+            game.tradeState.myReady = false; game.tradeState.theirReady = false;
+            if(peerConn && peerConn.open) peerConn.send({ type: 'trade_update', offer: game.tradeState.myOffer });
+            renderTradeMenu();
+        }
+
+        function toggleTradeReady() {
+            game.tradeState.myReady = !game.tradeState.myReady;
+            if(peerConn && peerConn.open) peerConn.send({ type: 'trade_ready', state: game.tradeState.myReady });
+            renderTradeMenu();
+            checkTradeComplete();
+        }
+
+        function checkTradeComplete() {
+            if (game.tradeState.myReady && game.tradeState.theirReady) {
+                game.coins -= game.tradeState.myOffer.coins;
+                game.coins += game.tradeState.theirOffer.coins;
+                game.finishedItems.push(...game.tradeState.theirOffer.items);
+                game.tradeState.myOffer.items = []; 
+                game.tradeState.active = false;
+
+                createParticles(game.player.x, game.player.y, C.green, 20);
+                addFloatingText(game.player.x, game.player.y - 10, "TRADE COMPLETE!", C.green);
+                
+                closeMenus(); saveGame();
+            }
+        }
+
+        const SAVE_KEY = 'masterBlacksmith_SaveData_V2';
+
+        function assembleSavePackage() {
+            return {
+                coins: game.coins, stamina: game.stamina, inv: game.inv,
+                finishedItems: game.finishedItems, equipment: game.equipment,
+                pick: game.pick, power: game.power,
+                miningLvl: game.miningLvl, miningXp: game.miningXp,
+                forgeLvl: game.forgeLvl, forgeXp: game.forgeXp,
+                licenseLvl: game.licenseLvl, popularity: game.popularity,
+                marketItem: game.marketItem, marketNpc: game.marketNpc, marketTimer: game.marketTimer,
+                decorations: game.decorations
+            };
+        }
+
+        function unpackSavePackage(data) {
+            game.coins = data.coins || 0; 
+            game.stamina = data.stamina || 100;
+            game.inv = data.inv || { coal: 0, tin: 0, copper: 0, iron: 0, silver: 0, gold: 0, mithril: 0, adamant: 0 };
+            game.finishedItems = data.finishedItems || [];
+            game.equipment = data.equipment || { head: null, neck: null, body: null, hand: null, weapon: null };
+            if (game.equipment.weapon === undefined) game.equipment.weapon = null;
+            game.pick = data.pick || 'Stone'; 
+            game.power = data.power || 1;
+            game.miningLvl = data.miningLvl || 1; 
+            game.miningXp = data.miningXp || 0;
+            game.forgeLvl = data.forgeLvl || 1; 
+            game.forgeXp = data.forgeXp || 0;
+            game.licenseLvl = data.licenseLvl || 1; 
+            game.popularity = data.popularity || 100;
+            game.marketItem = data.marketItem || null; 
+            game.marketNpc = data.marketNpc || null;
+            game.marketTimer = data.marketTimer || 0;
+            game.decorations = data.decorations || [];
+        }
+
+        function saveGame() {
+            try {
+                const saveData = assembleSavePackage();
+                localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+                addFloatingText(game.player.x + 10, game.player.y - 10, "LOCAL SAVE OK", C.green);
+            } catch(e) {
+                console.error("Save failed (localStorage disabled?)", e);
+            }
+        }
+
+        function loadGame() {
+            try {
+                const savedStr = localStorage.getItem(SAVE_KEY);
+                if (savedStr) {
+                    unpackSavePackage(JSON.parse(savedStr));
+                    addFloatingText(game.player.x + 10, game.player.y - 10, "LOCAL LOAD OK", C.blue); 
+                    closeMenus();
+                }
+            } catch (e) {
+                console.error("Load failed:", e);
+                addFloatingText(game.player.x + 10, game.player.y - 10, "LOAD FAILED!", C.red); 
+            }
+        }
+
+        function generateCloudLink() {
+            try {
+                const pkg = assembleSavePackage();
+                const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(pkg))));
+                const shareUrl = window.location.origin + window.location.pathname + '#' + b64;
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                    alert("🔗 Link copied to clipboard!\n\nBookmark this link or paste it anywhere online to load your save progress instantly.");
+                }).catch(() => { prompt("Copy manually:", shareUrl); });
+            } catch(e) { alert("Failed to build link."); }
+        }
+
+        function importTextCode() {
+            const code = prompt("Paste your save string here:"); 
+            if (!code) return;
+            try {
+                const cleanCode = code.includes('#') ? code.split('#')[1] : code;
+                const jsonStr = decodeURIComponent(escape(atob(cleanCode)));
+                unpackSavePackage(JSON.parse(jsonStr));
+                addFloatingText(game.player.x + 10, game.player.y - 10, "CODE IMPORTED!", C.green); 
+                closeMenus();
+            } catch(e) { alert("❌ Invalid format."); }
+        }
+
+        function checkForUrlHashSave() {
+            if (window.location.hash && window.location.hash.length > 2) {
+                try {
+                    const b64 = window.location.hash.substring(1); 
+                    const jsonStr = decodeURIComponent(escape(atob(b64)));
+                    const data = JSON.parse(jsonStr);
+                    if (confirm("🔗 Found a cloud save link! Load it? (Overwrites local progress)")) {
+                        unpackSavePackage(data); 
+                        addFloatingText(game.player.x + 10, game.player.y - 10, "CLOUD DATA LOADED!", C.green);
+                    }
+                    history.replaceState(null, null, ' ');
+                } catch(e) { console.error("Error decoding link parameters."); }
+            }
+        }
+
+        function wipeSave() { 
+            if (confirm("Are you sure you want to wipe save data?")) { 
+                try { localStorage.removeItem(SAVE_KEY); } catch(e){}
+                location.reload(); 
+            } 
+        }
+
+        function openSystemMenu() { 
+            game.isMenuOpen = true; 
+            document.getElementById('system-menu').style.display = 'block'; 
+        }
+
+        function openDecorMenu() {
+            game.isMenuOpen = true; 
+            const list = document.getElementById('decor-list'); 
+            list.innerHTML = ''; 
+            decorItems.forEach(item => {
+                const div = document.createElement('div');
+                const canAfford = game.coins >= item.cost && game.inv[item.mat] >= item.matCost;
+                div.className = 'inventory-item' + (!canAfford ? ' disabled-item' : ''); 
+                div.innerHTML = `<div><b style="color:#29adff;">${item.name}</b><br><span style="font-size:0.6rem; color:#aaa;">Costs: ${item.cost}C, ${item.matCost} ${item.mat.toUpperCase()}</span></div><div class="gold-v">PLACE</div>`; 
+                if(canAfford){ 
+                    div.onclick = () => { 
+                        game.coins -= item.cost; 
+                        game.inv[item.mat] -= item.matCost; 
+                        game.decorations.push({ type: item.type, x: game.player.x, y: game.player.y });
+                        createParticles(game.player.x, game.player.y, C.green, 20); 
+                        addFloatingText(game.player.x, game.player.y-10, "Placed!", C.green); 
+                        if(peerConn && peerConn.open) {
+                            peerConn.send({ type: 'place_decor', decor: { type: item.type, x: game.player.x, y: game.player.y }});
+                        }
+                        openDecorMenu(); 
+                        saveGame(); 
+                    }; 
+                } 
+                list.appendChild(div);
+            });
+            document.getElementById('decor-menu').style.display = 'block';
+        }
+
+        window.onload = () => { 
+            try {
+                loadGame(); 
+                checkForUrlHashSave(); 
+                spawnNodes(1);
+                spawnNodes(2);
+                spawnNodes(3);
+                draw(); 
+            } catch(e) {
+                console.error("Game crashed on load:", e);
+                alert("Game encountered a fatal error on load. Check console.");
+            }
+        };
+
+        function spawnNodes(areaId) {
+            game.nodes[areaId] = []; 
+            const count = 7 + Math.floor(Math.random() * 5);
+            for(let i=0; i<count; i++) {
+                let nodeType = 'coal'; let roll = Math.random();
+                if (areaId === 1) { if(roll > 0.95) nodeType = 'iron'; else if(roll > 0.75) nodeType = 'copper'; else if(roll > 0.50) nodeType = 'tin'; else nodeType = 'coal'; } 
+                else if (areaId === 2) { if(roll > 0.80) nodeType = 'gold'; else if(roll > 0.50) nodeType = 'silver'; else if(roll > 0.10) nodeType = 'iron'; else nodeType = 'coal'; } 
+                else if (areaId === 3) { if(roll > 0.70) nodeType = 'adamant'; else if(roll > 0.30) nodeType = 'mithril'; else if(roll > 0.10) nodeType = 'gold'; else nodeType = 'silver'; }
+
+                let attempts = 0;
+                while(attempts < 50) {
+                    let nx = 50 + Math.random() * 700; let ny = 50 + Math.random() * 250;
+                    let tooClose = game.nodes[areaId].some(n => dist(nx, ny, n.x, n.y) < 60);
+                    if(ny < 330 && !tooClose) { game.nodes[areaId].push({ x: nx, y: ny, type: nodeType, hp: 5, mhp: 5, active: true, shake: 0 }); break; } attempts++;
+                }
+            }
+        }
+
+        const keys = {};
+        window.onkeydown = (e) => { 
+            // CHAT INPUT LOGIC - Block WASD if actively typing in the chat
+            const chatInput = document.getElementById('chat-input');
+            if (document.activeElement === chatInput) {
+                if (e.code === 'Enter') {
+                    const text = chatInput.value.trim();
+                    if (text) {
+                        addChatMessage("You: " + text, "chat-me");
+                        if (peerConn && peerConn.open) {
+                            peerConn.send({ type: 'chat', text: text });
+                        }
+                        chatInput.value = '';
+                    }
+                    chatInput.blur(); // Unfocus after sending
+                }
+                return; // Stop any further keys if chatting
+            }
+            
+            // Pressing Enter outside of chat instantly focuses it
+            if (e.code === 'Enter') {
+                if (!game.showChat) {
+                    game.showChat = true;
+                    document.getElementById('chat-container').style.display = 'flex';
+                    addFloatingText(game.player.x, game.player.y - 30, "CHAT VISIBLE", C.white);
+                }
+                chatInput.focus();
+                e.preventDefault();
+                return;
+            }
+
+            keys[e.code] = true; 
+            if(e.code === 'KeyE') handleE(); 
+            if(e.code === 'Space') handleSpace();
+            if(e.code === 'KeyB') toggleBackpack(); 
+            if(e.code === 'KeyT') handleT(); 
+            if(e.code === 'KeyM') game.showMap = !game.showMap;
+            if(e.code === 'KeyN') {
+                game.showMinimap = !game.showMinimap;
+                addFloatingText(game.player.x, game.player.y - 30, game.showMinimap ? "MINIMAP ON" : "MINIMAP OFF", C.white);
+            }
+            if(e.code === 'KeyH') { 
+                game.showChat = !game.showChat; 
+                document.getElementById('chat-container').style.display = game.showChat ? 'flex' : 'none';
+                addFloatingText(game.player.x, game.player.y - 30, game.showChat ? "CHAT VISIBLE" : "CHAT HIDDEN", C.white);
+            }
+            if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyS','KeyA','KeyD','Space'].includes(e.code)) e.preventDefault();
+        };
+
+        window.onkeyup = (e) => { 
+            if (document.activeElement === document.getElementById('chat-input')) return;
+            keys[e.code] = false; 
+        };
+
+        function handleT() {
+            if(game.isMenuOpen || game.forgePhase || game.testPhase) return;
+            
+            let sameMap = false;
+            if (otherPlayer && otherPlayer.map === game.map) {
+                if (game.map === 'CAVE') {
+                    if (otherPlayer.currentArea === game.currentArea) sameMap = true;
+                } else {
+                    sameMap = true;
+                }
+            }
+            
+            if(!peerConn || !peerConn.open || !otherPlayer || !sameMap) {
+                addFloatingText(game.player.x, game.player.y - 10, "NO ONE HERE", C.red); return;
+            }
+            if(dist(game.player.x, game.player.y, otherPlayer.x, otherPlayer.y) > 60) {
+                addFloatingText(game.player.x, game.player.y - 10, "TOO FAR", C.red); return;
+            }
+            openTradeMenu();
+            peerConn.send({ type: 'trade_open' });
+        }
+
+        function addFloatingText(x, y, text, color) { 
+            game.floatingTexts.push({ x: x, y: y, text: text, color: color, life: 40 }); 
+        }
+
+        function gainMiningXp(amount, x, y) {
+            game.miningXp += amount; addFloatingText(x, y - 10, `+${amount} XP`, C.blue);
+            let req = game.miningLvl * 100;
+            if (game.miningXp >= req) { 
+                game.miningXp -= req; 
+                game.miningLvl++; 
+                addFloatingText(x, y - 25, `MINE LVL UP!`, C.green); 
+            }
+        }
+
+        function getEquipmentStats() {
+            let totalPow = 0; let totalStam = 0;
+            Object.values(game.equipment).forEach(item => {
+                if (!item) return;
+                let mult = 1; 
+                if (item.quality === 'Rare') mult = 1.5; 
+                if (item.quality === 'Epic') mult = 2.0; 
+                if (item.quality === 'Masterwork') mult = 3.0; 
+                if (item.quality === 'Legendary') mult = 5.0;
+                let p = 0, s = 0;
+                if (item.name.includes('Ring')) { s = 15; p = 1; } 
+                if (item.name.includes('Amulet')) { s = 25; p = 2; }
+                if (item.name.includes('Helmet') || item.name.includes('Crown')) { s = 40; p = 1; } 
+                if (item.name.includes('Armor') || item.name.includes('Chestplate')) { s = 80; }
+                if (item.name.includes('Sword')) { p = 25; s = 5; }
+                if (item.name.includes('Battleaxe')) { p = 40; s = -5; }
+                if (item.name.includes('Dagger')) { p = 15; s = 10; }
+                
+                totalPow += Math.floor(p * mult); totalStam += Math.floor(s * mult);
+            }); 
+            return { pow: totalPow, stam: totalStam };
+        }
+
+        function getItemSlot(name) {
+            if (name.includes('Ring')) return 'hand'; 
+            if (name.includes('Amulet')) return 'neck';
+            if (name.includes('Helmet') || name.includes('Crown')) return 'head'; 
+            if (name.includes('Armor') || name.includes('Chestplate')) return 'body';
+            if (name.includes('Sword') || name.includes('Battleaxe') || name.includes('Dagger')) return 'weapon';
+            return null;
+        }
+
+        function handleE() {
+            if(game.forgePhase === 'heat') { game.heat = Math.min(100, game.heat + 9); createParticles(300, 200, C.orange, 3); return; }
+            if(game.isMenuOpen || game.forgePhase || game.testPhase) return;
+            
+            if(game.map === 'CAVE') {
+                let nList = game.nodes[game.currentArea];
+                for (let i = 0; i < nList.length; i++) {
+                    let n = nList[i];
+                    if(n.active && dist(game.player.x+10, game.player.y+13, n.x+16, n.y+16) < 60) {
+                        if (game.stamina < 5) { addFloatingText(game.player.x + 10, game.player.y - 10, "EXHAUSTED!", C.red); return; }
+                        game.stamina -= 5; game.player.mineAnim = 10;
+                        setTimeout(() => {
+                            let stats = getEquipmentStats(); 
+                            let totalPower = game.power + stats.pow; 
+                            let levelBonusDmg = Math.floor((game.miningLvl - 1) / 3);
+                            let dmg = totalPower + levelBonusDmg;
+                            
+                            let wasActive = n.active;
+                            n.hp -= dmg; n.shake = 8;
+                            
+                            if(peerConn && peerConn.open) {
+                                peerConn.send({ type: 'mine_node', area: game.currentArea, nodeIndex: i, damage: dmg });
+                            }
+                            
+                            let pCol = C.black; 
+                            if(n.type==='iron') pCol = C.orange; else if(n.type==='gold') pCol = C.yellow; else if(n.type==='copper') pCol = C.copper; else if(n.type==='mithril') pCol = C.mithril; else if(n.type==='tin') pCol = C.tin; else if(n.type==='silver') pCol = C.silver; else if(n.type==='adamant') pCol = C.adamant;
+                            createParticles(n.x+16, n.y+16, pCol, 6);
+                            
+                            if(n.hp <= 0 && wasActive) { 
+                                n.active = false; game.inv[n.type]++;
+                                let xpValues = { coal: 10, tin: 12, copper: 15, iron: 25, silver: 35, gold: 50, mithril: 100, adamant: 200 };
+                                gainMiningXp(xpValues[n.type] || 10, n.x + 16, n.y);
+                                
+                                if (game.isHost || !peerConn || !peerConn.open) {
+                                    setTimeout(() => { 
+                                        let attempts = 0; let nx=0, ny=0;
+                                        while(attempts < 50) { 
+                                            nx = 50 + Math.random() * 700; ny = 50 + Math.random() * 250; 
+                                            let tooClose = nList.some(other => other.active && dist(nx, ny, other.x, other.y) < 60); 
+                                            if(ny < 330 && !tooClose) break; 
+                                            attempts++; 
+                                        } 
+                                        
+                                        let roll = Math.random(); let nodeType = 'coal';
+                                        if (game.currentArea === 1) { if(roll > 0.95) nodeType = 'iron'; else if(roll > 0.75) nodeType = 'copper'; else if(roll > 0.50) nodeType = 'tin'; else nodeType = 'coal'; } 
+                                        else if (game.currentArea === 2) { if(roll > 0.80) nodeType = 'gold'; else if(roll > 0.50) nodeType = 'silver'; else if(roll > 0.10) nodeType = 'iron'; else nodeType = 'coal'; } 
+                                        else if (game.currentArea === 3) { if(roll > 0.70) nodeType = 'adamant'; else if(roll > 0.30) nodeType = 'mithril'; else if(roll > 0.10) nodeType = 'gold'; else nodeType = 'silver'; }
+
+                                        n.x = nx; n.y = ny; n.type = nodeType; n.hp = 5; n.mhp = 5; n.active = true; 
+                                        if(peerConn && peerConn.open) peerConn.send({ type: 'respawn_node', area: game.currentArea, nodeIndex: i, x: nx, y: ny, nodeType: nodeType, mhp: 5 });
+                                    }, 5000); 
+                                }
+                            }
+                        }, 100); break; 
+                    }
+                }
+            } else if (game.map === 'OUTDOOR') {
+                if(dist(game.player.x, game.player.y, 100, 130) < 70) openForgeMenu();
+                if(dist(game.player.x, game.player.y, 90, 340) < 70) openMinerAssocMenu();
+                if(dist(game.player.x, game.player.y, 660, 80) < 70) openBuyMenu();
+                if(dist(game.player.x, game.player.y, 670, 310) < 70) openSellMenu();
+                if(dist(game.player.x, game.player.y, 400, 270) < 70) openWholesaleMenu();
+            } else if (game.map === 'ESTATE') {
+                if(dist(game.player.x, game.player.y, 350, 220) < 70) openDecorMenu();
+            }
+        }
+
+        function handleSpace() {
+            if(game.map === 'ARENA') {
+                if(game.player.attackTimer <= 0) {
+                    game.player.attackTimer = 20;
+                    game.player.attackAnim = 10;
+                    
+                    // PVP Collision Check
+                    if (otherPlayer && otherPlayer.map === 'ARENA') {
+                        if (dist(game.player.x, game.player.y, otherPlayer.x, otherPlayer.y) < 55) {
+                            let stats = getEquipmentStats();
+                            let dmg = game.power + stats.pow + Math.floor(game.miningLvl/2);
+                            if (peerConn && peerConn.open) {
+                                peerConn.send({ type: 'pvp_damage', amt: dmg });
+                            }
+                            createParticles(otherPlayer.x, otherPlayer.y, C.red, 15);
+                        }
+                    }
+                }
+                return;
+            }
+
+            if(game.forgePhase === 'hammer') { 
+                let hit = (game.hammerCursor >= 90 && game.hammerCursor <= 125); 
+                game.score += hit ? 40 : 10; game.hammerHits++; 
+                document.getElementById('hit-count').innerText = game.hammerHits; 
+                createParticles(300, 200, hit ? C.yellow : C.d_gray, 10); 
+                if(game.hammerHits >= 3) startPhase('quench'); 
+            } else if (game.testPhase) { 
+                let hit = (game.hammerCursor >= 90 && game.hammerCursor <= 125); 
+                if (hit) { 
+                    game.testHits++; 
+                    document.getElementById('test-hit-count').innerText = game.testHits; 
+                    createParticles(300, 200, C.green, 15); 
+                    if (game.testHits >= 3) finishTest(true); 
+                } else { 
+                    createParticles(300, 200, C.red, 15); 
+                    finishTest(false); 
+                } 
+            }
+        }
+
+        function toggleBackpack() {
+            const bp = document.getElementById('backpack-menu');
+            if (bp.style.display === 'block') { closeMenus(); } 
+            else { if (game.isMenuOpen) closeMenus(); game.isMenuOpen = true; renderBackpack(); bp.style.display = 'block'; }
+        }
+
+        function equipItem(index) {
+            let item = game.finishedItems[index]; let slot = getItemSlot(item.name);
+            if (!slot) return;
+            if (game.equipment[slot]) { game.finishedItems.push(game.equipment[slot]); } 
+            game.equipment[slot] = item; game.finishedItems.splice(index, 1);
+            createParticles(game.player.x + 10, game.player.y + 10, C.yellow, 15); addFloatingText(game.player.x + 10, game.player.y - 10, "Equipped!", C.green); renderBackpack();
+        }
+
+        function unequipItem(slot) { 
+            if (game.equipment[slot]) { 
+                game.finishedItems.push(game.equipment[slot]); game.equipment[slot] = null; renderBackpack(); 
+            } 
+        }
+
+        function renderBackpack() {
+            const slots = ['head', 'neck', 'body', 'hand', 'weapon'];
+            slots.forEach(slot => {
+                const el = document.getElementById(`slot-${slot}`); const item = game.equipment[slot];
+                if (item) {
+                    el.classList.add('filled');
+                    let iconHtml = ''; if(slot==='head') iconHtml = '🪖 HEAD'; if(slot==='neck') iconHtml = '📿 NECK'; if(slot==='body') iconHtml = '👕 BODY'; if(slot==='hand') iconHtml = '💍 HAND'; if(slot==='weapon') iconHtml = '⚔️ WEAPON';
+                    let m=1; if(item.quality==='Rare')m=1.5; if(item.quality==='Epic')m=2.0; if(item.quality==='Masterwork')m=3.0; if(item.quality==='Legendary')m=5.0;
+                    let p=0, s=0; 
+                    if (item.name.includes('Ring')) { s = 15; p = 1; } 
+                    if (item.name.includes('Amulet')) { s = 25; p = 2; }
+                    if (item.name.includes('Helmet') || item.name.includes('Crown')) { s = 40; p = 1; } 
+                    if (item.name.includes('Armor') || item.name.includes('Chestplate')) { s = 80; }
+                    if (item.name.includes('Sword')) { p = 25; s = 5; }
+                    if (item.name.includes('Battleaxe')) { p = 40; s = -5; }
+                    if (item.name.includes('Dagger')) { p = 15; s = 10; }
+
+                    el.innerHTML = `<div class="slot-label">${iconHtml}</div><div class="slot-name q-${item.quality.toLowerCase()}">${item.name}</div><div class="slot-stats">${s!==0?'+'+Math.floor(s*m)+' STM ':''}${p!==0?'+'+Math.floor(p*m)+' POW':''}</div>`;
+                } else {
+                    el.classList.remove('filled');
+                    let iconHtml = ''; if(slot==='head') iconHtml = '🪖 HEAD'; if(slot==='neck') iconHtml = '📿 NECK'; if(slot==='body') iconHtml = '👕 BODY'; if(slot==='hand') iconHtml = '💍 HAND'; if(slot==='weapon') iconHtml = '⚔️ WEAPON';
+                    el.innerHTML = `<div class="slot-label">${iconHtml}</div><div class="slot-name" style="color:#666;">Empty</div>`;
+                }
+            });
+
+            const list = document.getElementById('backpack-list'); list.innerHTML = '';
+            let oreDiv = document.createElement('div'); let oresAdded = false;
+            ORES.forEach(o => {
+                if (game.inv[o] > 0) {
+                    oresAdded = true; let row = document.createElement('div'); row.className = 'material-row';
+                    let col='#c2c3c7'; if(o==='iron')col='#ffccaa'; if(o==='gold')col='#ffec27'; if(o==='copper')col=C.copper; if(o==='mithril')col=C.mithril; if(o==='tin')col=C.tin; if(o==='silver')col=C.silver; if(o==='adamant')col=C.adamant;
+                    row.innerHTML = `<span style="text-transform:uppercase; color:${col}">${o}</span> <span style="font-size:1.1rem;">x${game.inv[o]}</span>`; oreDiv.appendChild(row);
+                }
+            });
+            if (oresAdded) list.appendChild(oreDiv);
+
+            let itemsDiv = document.createElement('div'); itemsDiv.innerHTML = `<div style="color:#aaa; font-size:0.75rem; margin:15px 0 8px 0; border-bottom:1px solid #444; padding-bottom:3px;">FORGED ITEMS</div>`;
+            if (game.finishedItems.length === 0) { itemsDiv.innerHTML += `<div style="font-size:0.8rem; color:#666;">No items crafted.</div>`; } 
+            else {
+                game.finishedItems.forEach((item, idx) => {
+                    let equipSlot = getItemSlot(item.name); let row = document.createElement('div'); row.className = 'inventory-item';
+                    let hint = equipSlot ? `<span style="font-size:0.7rem; color:#00e436; font-weight:bold;">[Equip]</span>` : `<span style="font-size:0.7rem; color:#aaa;">Val: ${item.value}C</span>`;
+                    row.innerHTML = `<div><b>${item.name}</b> <span class="q-tag q-${item.quality.toLowerCase()}">${item.quality}</span></div><div>${hint}</div>`;
+                    if (equipSlot) { row.onclick = () => equipItem(idx); } itemsDiv.appendChild(row);
+                });
+            }
+            list.appendChild(itemsDiv);
+        }
+
+        function openWholesaleMenu() {
+            game.isMenuOpen = true; 
+            const list = document.getElementById('wholesale-list'); 
+            list.innerHTML = ''; 
+            
+            const addRawSell = (name, price, tagClass, count) => { 
+                if(count > 0) { 
+                    const div = document.createElement('div'); 
+                    div.className = 'inventory-item'; 
+                    div.innerHTML = `<div><b>${name} Ore</b> <span class="q-tag ${tagClass}">RAW</span></div><div class="gold-v" style="color:#ff004d;">${price}C</div>`; 
+                    div.onclick = () => { 
+                        game.coins += price; let key = name.toLowerCase(); game.inv[key]--; 
+                        createParticles(game.player.x, game.player.y, C.yellow, 10); 
+                        openWholesaleMenu(); saveGame();
+                    }; 
+                    list.appendChild(div); 
+                } 
+            }; 
+            
+            addRawSell("Adamant", 100, "q-legendary", game.inv.adamant); 
+            addRawSell("Mithril", 40, "q-epic", game.inv.mithril); 
+            addRawSell("Gold", 20, "q-rare", game.inv.gold); 
+            addRawSell("Silver", 12, "q-rare", game.inv.silver); 
+            addRawSell("Iron", 4, "q-common", game.inv.iron); 
+            addRawSell("Copper", 2, "q-common", game.inv.copper); 
+            addRawSell("Tin", 2, "q-common", game.inv.tin);
+
+            game.finishedItems.forEach((item, idx) => { 
+                const div = document.createElement('div'); 
+                div.className = 'inventory-item'; 
+                let cutPrice = Math.max(1, Math.floor(item.value * 0.40));
+                div.innerHTML = `<div><b>${item.name}</b> <span class="q-tag q-${item.quality.toLowerCase()}">${item.quality}</span></div><div class="gold-v" style="color:#ff004d;">${cutPrice}C</div>`; 
+                div.onclick = () => { 
+                    game.coins += cutPrice; 
+                    createParticles(game.player.x, game.player.y, C.yellow, 15); 
+                    game.finishedItems.splice(idx, 1); 
+                    openWholesaleMenu(); saveGame();
+                }; 
+                list.appendChild(div); 
+            }); 
+            
+            if(!game.finishedItems.length && !Object.values(game.inv).some(v => v > 0)) {
+                list.innerHTML = "<p style='font-size:0.8rem; color:#666;'>No items to sell.</p>";
+            }
+            document.getElementById('wholesale-menu').style.display = 'block'; 
+        }
+
+        function openSellMenu() { game.isMenuOpen = true; renderMarketStall(); document.getElementById('sell-menu').style.display = 'block'; }
+        
+        function renderMarketStall() {
+            document.getElementById('market-pop-v').innerText = game.popularity;
+            let speedBoost = Math.floor((400 / Math.max(80, 400 - (game.popularity - 100))) * 100); 
+            document.getElementById('market-attract-v').innerText = speedBoost + "%";
+
+            const invList = document.getElementById('market-inventory-list'); invList.innerHTML = '';
+            if (game.finishedItems.length === 0) { 
+                invList.innerHTML = `<div style="font-size:0.7rem; color:#666; text-align:center; margin-top:20px;">No gear in backpack to put on sale.</div>`; 
+            } else {
+                game.finishedItems.forEach((item, idx) => {
+                    const div = document.createElement('div'); div.className = 'inventory-item'; div.style.margin = '4px 0'; div.style.padding = '6px'; div.style.fontSize = '0.7rem';
+                    div.innerHTML = `<div><b>${item.name}</b><br><span class="q-tag q-${item.quality.toLowerCase()}" style="font-size:0.55rem; padding:1px 3px;">${item.quality}</span></div><div style="color:#00e436; font-weight:bold;">LIST</div>`;
+                    div.onclick = () => { listMarketItem(idx); }; invList.appendChild(div);
+                });
+            }
+
+            const listStatus = document.getElementById('market-listing-status'); const npcStatus = document.getElementById('market-npc-status');
+            if (!game.marketItem) {
+                listStatus.innerHTML = `<div style="color:#666; margin-top:40px; text-align:center;">Your stall is empty.<br>Select an item from inventory to list it!</div>`; npcStatus.style.display = 'none';
+            } else {
+                listStatus.innerHTML = `<div style="border-bottom:1px solid #444; padding-bottom:4px;"><b>LISTED ITEM:</b><br><span style="color:#fff; font-weight:bold;">${game.marketItem.name}</span> <span class="q-tag q-${game.marketItem.quality.toLowerCase()}" style="font-size:0.55rem; padding:1px 3px;">${game.marketItem.quality}</span></div><button onclick="cancelMarketListing()" style="font-size:0.6rem; padding:2px; margin-top:4px; background:#ff004d; color:white; border-width:2px; width:auto; display:inline-block;">Cancel Sale</button>`;
+                if (!game.marketNpc) {
+                    npcStatus.style.display = 'flex'; npcStatus.innerHTML = `<div style="color:#888; text-align:center; margin-top:25px; font-style:italic;">Waiting for a client...</div>`;
+                } else {
+                    npcStatus.style.display = 'flex'; let npc = game.marketNpc;
+                    npcStatus.innerHTML = `<div style="color:#ffac30; font-weight:bold;">👤 ${npc.name}</div><div style="font-size:0.8rem; margin:4px 0;">Offer: <b class="gold-v">${npc.currentOffer} Coins</b></div><div style="font-size:0.6rem; color:#888; margin-bottom:4px;">Patience: ${"❤️".repeat(npc.patience)}</div><div class="sys-grid" style="margin-bottom:2px; gap:3px;"><button onclick="acceptNpcOffer()" style="font-size:0.6rem; background:#00e436; color:white; border-width:2px; padding:3px; margin:0;">ACCEPT</button><button onclick="rejectNpc()" style="font-size:0.6rem; background:#5f574f; color:white; border-width:2px; padding:3px; margin:0;">REFUSE</button></div><div class="sys-grid" style="gap:3px; margin-top:1px;"><button onclick="haggleMarket('low')" style="font-size:0.55rem; background:#ffa300; color:black; border-width:2px; padding:3px; margin:0;">HAGGLE (+15%)</button><button onclick="haggleMarket('high')" style="font-size:0.55rem; background:#ff004d; color:white; border-width:2px; padding:3px; margin:0;">PUSH (+35%)</button></div>`;
+                }
+            }
+        }
+
+        function listMarketItem(idx) { if (game.marketItem) { alert("Clear active listing first!"); return; } game.marketItem = game.finishedItems[idx]; game.finishedItems.splice(idx, 1); game.marketNpc = null; let baseTime = Math.max(80, 400 - (game.popularity - 100)); game.marketTimer = baseTime + Math.random() * 80; renderMarketStall(); renderBackpack(); saveGame(); }
+        function cancelMarketListing() { if (!game.marketItem) return; game.finishedItems.push(game.marketItem); game.marketItem = null; game.marketNpc = null; renderMarketStall(); renderBackpack(); saveGame(); }
+        function triggerNpcSpawn() { if (!game.marketItem) return; let baseValue = game.marketItem.value; let popularityMult = 1 + (game.popularity - 100) / 350; let initialOffer = Math.floor(baseValue * popularityMult * (0.85 + Math.random() * 0.3)); const list = ["Gimli Ironvein", "Thorgan", "Bram", "Fiona", "Hilda", "Roderick", "Cedric", "Alvina", "Garrick"]; game.marketNpc = { name: list[Math.floor(Math.random() * list.length)], currentOffer: initialOffer, patience: Math.floor(2 + Math.random() * 3), maxBudget: Math.floor(initialOffer * (1.2 + Math.random() * 0.5)) }; if (document.getElementById('sell-menu').style.display === 'block') renderMarketStall(); saveGame(); }
+        function acceptNpcOffer() { if (!game.marketNpc || !game.marketItem) return; let finalPrice = game.marketNpc.currentOffer; game.coins += finalPrice; let q = game.marketItem.quality; let popDelta = 0; if (["Rare", "Epic", "Masterwork", "Legendary"].includes(q)) { if (q === "Rare") popDelta = 6; if (q === "Epic") popDelta = 12; if (q === "Masterwork") popDelta = 22; if (q === "Legendary") popDelta = 45; } else { if (game.marketItem.name === "Strange Chunk" || game.marketItem.name === "Pile of Ash") popDelta = -20; else popDelta = -6; } game.popularity = Math.max(10, Math.min(1000, game.popularity + popDelta)); addFloatingText(game.player.x + 10, game.player.y - 10, `+${finalPrice}C`, C.green); if (popDelta > 0) addFloatingText(game.player.x + 10, game.player.y - 25, `⭐ REP UP!`, C.yellow); if (popDelta < 0) addFloatingText(game.player.x + 10, game.player.y - 25, `📉 REP DOWN!`, C.red); game.marketItem = null; game.marketNpc = null; renderMarketStall(); renderBackpack(); saveGame(); }
+        function rejectNpc() { game.marketNpc = null; let baseTime = Math.max(80, 400 - (game.popularity - 100)); game.marketTimer = baseTime + Math.random() * 80; renderMarketStall(); saveGame(); }
+        function haggleMarket(type) { if (!game.marketNpc) return; let npc = game.marketNpc; npc.patience--; let increasePct = type === 'low' ? 0.15 : 0.35; let proposedCounter = Math.floor(npc.currentOffer * (1 + increasePct)); let successRate = type === 'low' ? 0.75 : 0.38; let popularityBonus = (game.popularity - 100) / 1200; let roll = Math.random(); if (proposedCounter <= npc.maxBudget && roll < (successRate + popularityBonus) && npc.patience >= 0) { npc.currentOffer = proposedCounter; createParticles(game.player.x, game.player.y, C.green, 6); } else { game.marketNpc = null; game.popularity = Math.max(10, game.popularity - 4); let baseTime = Math.max(80, 400 - (game.popularity - 100)); game.marketTimer = baseTime + Math.random() * 80; } renderMarketStall(); saveGame(); }
+        function tickMarket() { if (game.marketItem && !game.marketNpc) { game.marketTimer--; if (game.marketTimer <= 0) { triggerNpcSpawn(); } } }
+
+        function openMineSelector() { 
+            game.isMenuOpen = true; 
+            const list = document.getElementById('mine-list'); 
+            list.innerHTML = ''; 
+            licenseData.forEach(area => { 
+                const canAccess = game.licenseLvl >= area.id; 
+                const div = document.createElement('div'); 
+                div.className = 'inventory-item' + (!canAccess ? ' disabled-item' : ''); 
+                let extraHtml = canAccess ? `<div style="font-size:0.65rem; color:#aaa;">Ores: ${area.ores.join(', ')}</div>` : `<div style="font-size:0.65rem; color:#ff004d;">Requires License Lv ${area.id}</div>`; 
+                div.innerHTML = `<div><b style="color:${area.color};">${area.name}</b><br>${extraHtml}</div>`; 
+                
+                if (canAccess) { 
+                    div.onclick = () => { 
+                        closeMenus(); 
+                        game.currentArea = area.id; 
+                        game.map = 'CAVE'; 
+                        game.player.y = 350; 
+                    }; 
+                } 
+                list.appendChild(div); 
+            }); 
+            document.getElementById('mine-selector-menu').style.display = 'block'; 
+        }
+
+        function openMinerAssocMenu() { game.isMenuOpen = true; const details = document.getElementById('assoc-details'); let nextLicense = licenseData.find(l => l.id === game.licenseLvl + 1); if (!nextLicense) { details.innerHTML = `<h3 style="color:${C.adamant};">Master Miner</h3><p>You hold the highest mining license!</p>`; } else { let canAfford = game.coins >= nextLicense.cost; let highEnough = game.miningLvl >= nextLicense.reqLvl; details.innerHTML = `<div style="margin-bottom:10px;">Current License: <b>Lv ${game.licenseLvl}</b></div><hr style="border-color:#36363b;"><div style="margin-top:10px; color:#29adff;">Next: <b>${nextLicense.name} (Lv ${nextLicense.id})</b></div><div style="font-size:0.8rem; margin-top:5px; color:${highEnough ? C.green : C.red}">Req Mine Lv: ${nextLicense.reqLvl}</div><div style="font-size:0.8rem; color:${canAfford ? C.green : C.red}">Test Fee: ${nextLicense.cost}C</div>`; if (canAfford && highEnough) { details.innerHTML += `<button onclick="startMiningTest(${nextLicense.id}, ${nextLicense.cost})" style="width:100%; margin-top:15px; background:${C.indigo}; color:white;">TAKE TEST</button>`; } } document.getElementById('miner-assoc-menu').style.display = 'block'; }
+        function startMiningTest(targetLvl, cost) { game.coins -= cost; game.isMenuOpen = false; document.getElementById('miner-assoc-menu').style.display = 'none'; game.testPhase = true; game.testHits = 0; game.hammerCursor = 0; game.hammerDir = targetLvl === 2 ? 6 : 9; document.getElementById('test-hit-count').innerText = "0"; document.getElementById('test-menu').style.display = 'block'; }
+        function finishTest(success) { game.testPhase = false; document.getElementById('test-menu').style.display = 'none'; game.isMenuOpen = true; let resultHtml = ""; if (success) { game.licenseLvl++; document.getElementById('result-title').innerText = "LICENSE UPGRADED!"; document.getElementById('result-title').style.color = C.green; document.getElementById('result-icon-container').innerHTML = `<div style="font-size:3rem;">📜</div>`; resultHtml = `<div style="color:#fff;">Congratulations!</div><div style="color:#aaa; font-size:0.85rem; margin-top:5px;">You are now a License Lv ${game.licenseLvl} Miner.</div>`; createParticles(300, 200, C.green, 30); } else { document.getElementById('result-title').innerText = "TEST FAILED"; document.getElementById('result-title').style.color = C.red; document.getElementById('result-icon-container').innerHTML = `<div style="font-size:3rem;">❌</div>`; resultHtml = `<div style="color:#fff;">You missed the sweet spot.</div><div style="color:#aaa; font-size:0.85rem; margin-top:5px;">Keep practicing and try again.</div>`; createParticles(300, 200, C.red, 20); } document.getElementById('result-details').innerHTML = resultHtml; document.getElementById('forge-result').style.display = 'block'; saveGame(); }
+        
+        function openForgeMenu() { game.isMenuOpen=true; ORES.forEach(o=>currentForgeMix[o]=0); renderForgeMenu(); document.getElementById('forge-menu').style.display='block'; }
+        function renderForgeMenu() { 
+            const list = document.getElementById('material-setup-list'); list.innerHTML=''; 
+            ORES.forEach(mat=>{ 
+                let col='#c2c3c7'; if(mat==='iron')col='#ffccaa'; if(mat==='gold')col='#ffec27'; if(mat==='copper')col=C.copper; if(mat==='mithril')col=C.mithril; if(mat==='tin')col=C.tin; if(mat==='silver')col=C.silver; if(mat==='adamant')col=C.adamant; 
+                list.innerHTML+=`<div class="material-row"><span style="color:${col}; width:55px; text-transform:uppercase; font-size:0.75rem;">${mat}</span><div><button class="btn-qty" onclick="modMaterial('${mat}', -1)">-</button><span style="display:inline-block; width:20px; text-align:center; font-size:1.1rem;">${currentForgeMix[mat]}</span><button class="btn-qty" onclick="modMaterial('${mat}', 1)">+</button></div><span style="font-size:0.6rem; color:#888; width:25px; text-align:right;">(${game.inv[mat]})</span></div>`; 
+            }); 
+            drawCrucible(); 
+        }
+        function drawCrucible() { const cCtx=document.getElementById('crucibleCanvas').getContext('2d'); cCtx.clearRect(0,0,100,150); const pRectC=(x,y,w,h,col)=>{cCtx.fillStyle=col;cCtx.fillRect(Math.floor(x),Math.floor(y),w,h);}; pRectC(15,60,70,20,'#36363b'); pRectC(20,65,60,15,'#111'); let items=[]; for(let i=0;i<currentForgeMix.coal;i++)items.push({col:'#000',shine:'#5f574f'}); for(let i=0;i<currentForgeMix.tin;i++)items.push({col:C.tin,shine:'#fff'}); for(let i=0;i<currentForgeMix.copper;i++)items.push({col:C.copper,shine:'#fff'}); for(let i=0;i<currentForgeMix.iron;i++)items.push({col:'#ffa300',shine:'#fff'}); for(let i=0;i<currentForgeMix.silver;i++)items.push({col:C.silver,shine:'#fff'}); for(let i=0;i<currentForgeMix.gold;i++)items.push({col:'#ffec27',shine:'#fff'}); for(let i=0;i<currentForgeMix.mithril;i++)items.push({col:C.mithril,shine:'#fff'}); for(let i=0;i<currentForgeMix.adamant;i++)items.push({col:C.adamant,shine:'#fff'}); items.forEach((item,idx)=>{let row=Math.floor(idx/5);let colIndex=idx%5;let offsetX=(row%2===0)?0:5;let x=25+colIndex*10+offsetX;let y=75-row*6; if(x<22)x=22;if(x>68)x=68; pRectC(x,y,8,8,item.col); pRectC(x+1,y+1,2,2,item.shine);}); pRectC(15,78,70,35,'#5f574f'); pRectC(25,113,50,15,'#444449'); pRectC(30,128,40,5,'#1a1a1c'); pRectC(15,78,70,3,'#c2c3c7'); }
+        function modMaterial(mat, amt) { let newVal=currentForgeMix[mat]+amt; if(newVal>=0 && newVal<=game.inv[mat]){currentForgeMix[mat]=newVal; renderForgeMenu();} }
+        function startCustomForge() { let totalAdded=Object.values(currentForgeMix).reduce((a,b)=>a+b,0); if(totalAdded<=0)return; Object.keys(currentForgeMix).forEach(k=>game.inv[k]-=currentForgeMix[k]); game.score=0; game.hammerHits=0; game.quenchProgress=0; document.getElementById('hit-count').innerText="0"; document.getElementById('quench-fill').style.width="0%"; game.isMenuOpen=false; document.getElementById('forge-menu').style.display='none'; document.getElementById('complex-forge').style.display='block'; startPhase('heat'); }
+        function startPhase(ph) { game.forgePhase = ph; document.getElementById('heat-ui').style.display=ph==='heat'?'block':'none'; document.getElementById('hammer-ui').style.display=ph==='hammer'?'block':'none'; document.getElementById('quench-ui').style.display=ph==='quench'?'block':'none'; document.getElementById('forge-title').innerText=ph.toUpperCase(); if(ph==='heat'){game.heat=20;game.heatTimer=0;} }
+        
+        function openBuyMenu() { game.isMenuOpen=true; const list=document.getElementById('buy-list'); list.innerHTML=''; shopItems.forEach(item=>{ const div=document.createElement('div'); const canAfford=game.coins>=item.price; const isBetter=item.power>game.power; div.className='inventory-item'+(!canAfford||!isBetter?' disabled-item':''); let extraHtml=''; if(!isBetter) extraHtml=`<div style="font-size:0.6rem; color:#ff004d; margin-top:2px;">Owned or Weaker</div>`; else if(!canAfford) extraHtml=`<div style="font-size:0.6rem; color:#aaa; margin-top:2px;">Not Enough Coins</div>`; div.innerHTML=`<div><b style="color:#29adff;">${item.name} Pickaxe</b><br><span style="font-size:0.7rem; color:#aaa;">Mining Power: ${item.power}</span>${extraHtml}</div><div class="gold-v">${item.price}C</div>`; if(canAfford&&isBetter){ div.onclick=()=>{ game.coins-=item.price; game.pick=item.name; game.power=item.power; createParticles(game.player.x, game.player.y, C.green, 20); addFloatingText(game.player.x, game.player.y-10, "Equipped!", C.green); openBuyMenu(); saveGame(); }; } list.appendChild(div); }); document.getElementById('buy-menu').style.display='block'; }
+
+        function generateItemIcon(name, quality) {
+            const iconCanvas = document.createElement('canvas'); iconCanvas.width = 32; iconCanvas.height = 32; const ictx = iconCanvas.getContext('2d');
+            let primaryColor = C.l_gray; if (name.includes('Adamant')) primaryColor = C.adamant; else if (name.includes('Mithril')) primaryColor = C.mithril; else if (name.includes('Gold') || name.includes('Magic')) primaryColor = C.yellow; else if (name.includes('Silver')) primaryColor = C.silver; else if (name.includes('Bronze')) primaryColor = C.bronze; else if (name.includes('Copper')) primaryColor = C.copper; else if (name.includes('Steel')) primaryColor = C.indigo; else if (name.includes('Tin')) primaryColor = C.tin;
+            let handleColor = C.brown; const pix = (x, y, w, h, col) => { ictx.fillStyle = col; ictx.fillRect(x, y, w, h); };
+            if (name.includes('Helmet') || name.includes('Crown')) { pix(8,8,16,12,primaryColor); pix(10,20,12,2,primaryColor); pix(14,4,4,4,primaryColor); if(name.includes('Crown')) { pix(6,8,2,6,C.red); pix(24,8,2,6,C.red); } } else if (name.includes('Armor') || name.includes('Chestplate')) { pix(8,8,16,16,primaryColor); pix(12,12,8,8,'#111'); pix(6,10,2,6,primaryColor); pix(24,10,2,6,primaryColor); } else if (name.includes('Sword')) { pix(14,24,4,6,handleColor); pix(10,22,12,2,handleColor); pix(13,4,6,18,primaryColor); pix(14,2,4,2,primaryColor); } else if (name.includes('Battleaxe')) { pix(14,10,4,20,handleColor); pix(6,6,8,12,primaryColor); pix(18,6,8,12,primaryColor); pix(4,8,2,8,primaryColor); pix(26,8,2,8,primaryColor); } else if (name.includes('Pickaxe')) { pix(14,10,4,20,handleColor); pix(4,6,24,4,primaryColor); pix(2,8,2,4,primaryColor); pix(28,8,2,4,primaryColor); } else if (name.includes('Ring') || name.includes('Amulet')) { pix(10,10,12,12,primaryColor); pix(12,12,8,8,'#111'); if(name.includes('Magic')) pix(14,8,4,4,C.mithril); else if(name.includes('Gold')) pix(14,8,4,4,C.red); else if(name.includes('Silver')) pix(14,8,4,4,C.blue); } else { pix(8,12,16,12,primaryColor); pix(10,10,12,2,primaryColor); pix(10,24,12,2,primaryColor); }
+            return iconCanvas.toDataURL();
+        }
+
+        function finishForge() {
+            let cp = currentForgeMix.copper, i = currentForgeMix.iron, c = currentForgeMix.coal, g = currentForgeMix.gold, m = currentForgeMix.mithril, t = currentForgeMix.tin, s = currentForgeMix.silver, a = currentForgeMix.adamant;
+            let itemName = "Mystery Alloy", baseVal = 5, isUpgrade = false, power = game.power, upgName = "";
+            
+            if (a >= 5 && game.pick === 'Mithril') { isUpgrade = true; upgName = 'Adamant'; power = 20; itemName = "Adamant Pickaxe"; baseVal = 5000; } 
+            else if (m >= 5 && game.pick === 'Steel') { isUpgrade = true; upgName = 'Mithril'; power = 12; itemName = "Mithril Pickaxe"; baseVal = 2000; } 
+            else if (i === 5 && c >= 5 && game.pick === 'Iron') { isUpgrade = true; upgName = 'Steel'; power = 6; itemName = "Steel Pickaxe"; baseVal = 500; } 
+            else if (i >= 5 && game.pick === 'Bronze') { isUpgrade = true; upgName = 'Iron'; power = 4; itemName = "Iron Pickaxe"; baseVal = 200; } 
+            else if (cp >= 3 && t >= 2 && game.pick === 'Stone') { isUpgrade = true; upgName = 'Bronze'; power = 3; itemName = "Bronze Pickaxe"; baseVal = 100; } 
+            else if (m >= 5 && c >= 2) { itemName = "Mithril Chestplate"; baseVal = 1800 + (m*50); }
+            else if (i >= 6 && c >= 4) { itemName = "Steel Armor"; baseVal = 600 + (i*10); }
+            else if (cp >= 4 && t >= 2) { itemName = "Bronze Armor"; baseVal = 150 + (cp*5); }
+            else if (g >= 3) { itemName = "Gold Crown"; baseVal = 1200 + (g*50); }
+            else if (i >= 4 && c >= 2) { itemName = "Iron Helmet"; baseVal = 200 + (i*5); }
+            else if (cp >= 3 && c >= 3) { itemName = "Copper Helmet"; baseVal = 80 + (cp*5); }
+            else if (a >= 4 && c >= 10) { itemName = "Adamant Battleaxe"; baseVal = 3000 + (a*100); } 
+            else if (a >= 2 && i >= 2) { itemName = "Adamant Sword"; baseVal = 2000 + (a*100); } 
+            else if (m >= 4 && c >= 5) { itemName = "Mithril Battleaxe"; baseVal = 800 + (m*50); } 
+            else if (m >= 2 && s >= 1) { itemName = "Mithril Sword"; baseVal = 500 + (m*50); } 
+            else if (g >= 3 && s >= 1) { itemName = "Royal Gold Sword"; baseVal = 400 + (g*30) + (s*20); } 
+            else if (s >= 2 && i >= 1) { itemName = "Silver Sword"; baseVal = 250 + (s*40); } 
+            else if (i >= 5 && c >= 5) { itemName = "Steel Battleaxe"; baseVal = 120 + (i*5) + (c*2); } 
+            else if (i >= 3 && c >= 2) { itemName = "Steel Sword"; baseVal = 80 + (i*5) + (c*2); } 
+            else if (cp >= 3 && t >= 2) { itemName = "Bronze Battleaxe"; baseVal = 60 + (cp*4) + (t*4); } 
+            else if (cp >= 2 && t >= 1) { itemName = "Bronze Sword"; baseVal = 40 + (cp*4) + (t*4); } 
+            else if (s >= 2 && g >= 1) { itemName = "Magic Amulet"; baseVal = 600; } 
+            else if (s >= 1 && i === 0 && c === 0) { itemName = "Silver Ring"; baseVal = 100 * s; } 
+            else if (g >= 1 && i === 0 && c === 0) { itemName = "Gold Ring"; baseVal = 150 * g; } 
+            else if (t >= 3) { itemName = "Tin Dagger"; baseVal = 10 + (t*2); } 
+            else if (c > 0 && i === 0 && g === 0 && m === 0 && cp === 0 && s === 0 && a === 0 && t === 0) { itemName = "Pile of Ash"; baseVal = 1; } 
+            else { itemName = "Strange Chunk"; baseVal = (t*2) + (cp*2) + (i*3) + c + (s*10) + (g*15) + (m*30) + (a*60); }
+
+            game.score += (game.forgeLvl - 1) * 15;
+            let q = "Common", mult = 1;
+            if(game.score > 220 && (a > 0 || m > 0 || g > 0)) { q = "Legendary"; mult = 4.0; } else if(game.score > 180) { q = "Masterwork"; mult = 2.8; } else if(game.score > 140) { q = "Epic"; mult = 1.9; } else if(game.score > 100) { q = "Rare"; mult = 1.4; }
+            let finalValue = Math.floor(baseVal * mult);
+            let xpEarned = Math.max(10, Math.floor(finalValue / 3)); game.forgeXp += xpEarned;
+            let req = game.forgeLvl * 100; let leveledUpForge = false;
+            if (game.forgeXp >= req) { game.forgeXp -= req; game.forgeLvl++; leveledUpForge = true; }
+
+            if (isUpgrade && game.power < power) { game.pick = upgName; game.power = power; } 
+            else { game.finishedItems.push({ name: itemName, quality: q, value: finalValue }); }
+            
+            createParticles(300, 200, C.green, 20); document.getElementById('result-title').innerText = "CRAFTING SUCCESS!"; document.getElementById('result-title').style.color = C.green;
+            document.getElementById('result-icon-container').innerHTML = `<img src="${generateItemIcon(itemName, q)}" style="width:128px; height:128px;">`;
+            let resultHtml = `<div style="color:#aaa; font-size:0.8rem;">You pulled from the forge...</div><div style="font-size: 1.3rem; font-weight: bold; margin: 5px 0; color:#fff;">${itemName}</div>`;
+            if(isUpgrade && game.power <= power) { resultHtml += `<div style="color: #29adff;">Pickaxe Upgraded! (Power: ${power})</div><div style="font-size:0.7rem; color:#aaa; margin-top:5px;">Mine ores faster!</div>`; } 
+            else { resultHtml += `<div style="margin-bottom: 5px;">Quality: <span class="q-tag q-${q.toLowerCase()}">${q}</span></div><div style="color:#aaa; font-size:0.85rem;">Value: <span class="gold-v">${finalValue}C</span></div>`; }
+            
+            let eSlot = getItemSlot(itemName);
+            if (eSlot) { resultHtml += `<div style="color:#00e436; font-size:0.75rem; margin-top:5px; font-weight:bold;">Equippable: ${eSlot.toUpperCase()}</div>`; }
+            
+            resultHtml += `<div style="margin-top: 10px; color: #ffac30; font-size: 0.8rem; font-weight: bold;">+${xpEarned} Forge XP</div>`;
+            if (leveledUpForge) resultHtml += `<div style="color: #00e436; font-size: 0.9rem; font-weight: bold; margin-top: 5px;">⚒️ Forge Level Up! (Lv ${game.forgeLvl})</div>`;
+            document.getElementById('result-details').innerHTML = resultHtml; game.forgePhase = ''; document.getElementById('complex-forge').style.display = 'none';
+            game.isMenuOpen = true; document.getElementById('forge-result').style.display = 'block';
+            saveGame(); 
+        }
+
+        function drawPlayer(x, y, r, isOther=false) {
+            const legWobble = r.walking ? Math.sin(r.tick * 0.2) * 3 : 0; 
+            const isAction = r.player.mineAnim > 0 || r.player.attackAnim > 0; 
+            const armY = y + 12 + Math.abs(legWobble) * 0.5;
+            ctx.save(); if(isAction) ctx.translate(r.player.dir * 4, 2);
+            let totalBag = isOther ? 0 : Object.values(game.inv).reduce((a,b)=>Number(a)+Number(b),0) + (game.finishedItems ? game.finishedItems.length : 0); 
+            let bagHeight = 6 + Math.min(12, Math.floor(totalBag / 3) || 0); 
+            if (r.player.dir > 0) { pRect(x - 3, y + 18 - bagHeight, 7, bagHeight, C.brown); pRect(x - 3, y + 18 - bagHeight, 7, 2, C.d_brown); } else { pRect(x + 16, y + 18 - bagHeight, 7, bagHeight, C.brown); pRect(x + 16, y + 18 - bagHeight, 7, 2, C.d_brown); }
+            
+            let bodyCol = isOther ? C.blue : C.d_gray; 
+            if(!isOther && game.equipment.body) { if(game.equipment.body.name.includes('Mithril')) bodyCol = C.mithril; else if(game.equipment.body.name.includes('Steel')) bodyCol = C.indigo; else if(game.equipment.body.name.includes('Bronze')) bodyCol = C.bronze; }
+            pRect(x + 4, y, 12, 10, C.l_gray);
+            
+            if(!isOther && game.equipment.head) { let hCol = C.d_gray; if(game.equipment.head.name.includes('Gold')) hCol = C.yellow; else if(game.equipment.head.name.includes('Iron')) hCol = C.l_gray; else if(game.equipment.head.name.includes('Copper')) hCol = C.copper; pRect(x + 2, y - 2, 16, 6, hCol); if(game.equipment.head.name.includes('Crown')) { pRect(x + 2, y - 4, 2, 2, C.yellow); pRect(x + 8, y - 5, 4, 3, C.yellow); pRect(x + 16, y - 4, 2, 2, C.yellow); } }
+            pRect(x + 6, y + 2, 8, 6, C.black); pRect(x + (r.player.dir > 0 ? 11 : 7), y + 4, 2, 2, C.blue); 
+            pRect(x + 2, y + 10, 16, 10, bodyCol); pRect(x + 4, y, 3, 3, C.red); 
+            pRect(x + 4, y + 20 + legWobble, 5, 6, C.d_gray); pRect(x + 11, y + 20 - legWobble, 5, 6, C.d_gray);
+
+            // Dynamically Draw Equipped Weapon or Pickaxe
+            let pCol = C.brown; 
+            let isSword = false; let isAxe = false;
+            let wepName = isOther ? r.player.weapon : (game.equipment.weapon ? game.equipment.weapon.name : null);
+            let pickName = isOther ? r.player.pick : game.pick;
+
+            if (wepName) {
+                if (wepName.includes('Adamant')) pCol = C.adamant;
+                else if (wepName.includes('Mithril')) pCol = C.mithril;
+                else if (wepName.includes('Gold')) pCol = C.yellow;
+                else if (wepName.includes('Steel')) pCol = C.indigo;
+                else if (wepName.includes('Iron')) pCol = C.l_gray;
+                else if (wepName.includes('Bronze')) pCol = C.bronze;
+                else if (wepName.includes('Silver')) pCol = C.silver;
+                else if (wepName.includes('Tin')) pCol = C.tin;
+
+                if (wepName.includes('Sword') || wepName.includes('Dagger')) isSword = true;
+                if (wepName.includes('Battleaxe')) isAxe = true;
+            } else if (pickName) {
+                if (pickName === 'Adamant') pCol = C.adamant; 
+                else if (pickName === 'Mithril') pCol = C.mithril; 
+                else if (pickName === 'Gold') pCol = C.yellow; 
+                else if (pickName === 'Steel') pCol = C.indigo; 
+                else if (pickName === 'Iron') pCol = C.l_gray; 
+                else if (pickName === 'Bronze') pCol = C.bronze;
+            }
+
+            let swingAngle = isAction ? (10 - (r.player.mineAnim || r.player.attackAnim)) * 0.3 : 0;
+            if (r.player.dir > 0) { 
+                ctx.translate(x + 16, armY); ctx.rotate(swingAngle); 
+                pRect(0, 0, 4, 8, bodyCol); 
+                pRect(2, 4, 12, 2, C.brown); 
+                if (isSword) {
+                    pRect(14, -6, 2, 14, pCol); // Sword blade
+                    pRect(12, 2, 2, 6, C.d_gray); // Crossguard
+                } else if (isAxe) {
+                    pRect(10, -2, 6, 10, pCol); // Axe head
+                    pRect(16, 0, 2, 6, pCol);
+                } else {
+                    pRect(10, -2, 2, 10, pCol); // Pickaxe
+                    pRect(8, 2, 6, 2, pCol);
+                }
+            } 
+            else { 
+                ctx.translate(x + 4, armY); ctx.rotate(-swingAngle); 
+                pRect(-4, 0, 4, 8, bodyCol); 
+                pRect(-14, 4, 12, 2, C.brown); 
+                if (isSword) {
+                    pRect(-16, -6, 2, 14, pCol); // Sword blade
+                    pRect(-14, 2, 2, 6, C.d_gray); // Crossguard
+                } else if (isAxe) {
+                    pRect(-16, -2, 6, 10, pCol); // Axe head
+                    pRect(-18, 0, 2, 6, pCol);
+                } else {
+                    pRect(-12, -2, 2, 10, pCol); // Pickaxe
+                    pRect(-14, 2, 6, 2, pCol);
+                }
+            }
+            ctx.restore();
+
+            // HP BAR for ARENA
+            if (game.map === 'ARENA') {
+                let currentHp = r.player.hp || 100;
+                let maxHp = isOther ? 100 : game.maxHp; // Rough estimation for peers
+                let hpPct = Math.max(0, currentHp / maxHp);
+                pRect(x - 5, y - 10, 30, 4, C.black);
+                pRect(x - 5, y - 10, 30 * hpPct, 4, C.red);
+            }
+        }
+
+        function drawNode(n) { if(!n.active) return; ctx.save(); if(n.shake > 0) { ctx.translate((Math.random()-0.5)*n.shake, 0); n.shake *= 0.8; } const x = n.x, y = n.y; pRect(x+4, y+26, 24, 6, 'rgba(0,0,0,0.3)'); pRect(x+4, y+4, 24, 24, C.d_gray); pRect(x+0, y+8, 4, 16, C.d_gray); pRect(x+28, y+10, 4, 12, C.d_gray); pRect(x+8, y+0, 16, 4, C.d_gray); pRect(x+20, y+8, 8, 20, C.black + '44'); pRect(x+8, y+20, 20, 8, C.black + '44'); pRect(x+4, y+4, 12, 2, C.l_gray); pRect(x+4, y+6, 2, 10, C.l_gray); let oC = C.black, oH = C.d_gray; if(n.type==='iron') { oC = C.orange; oH = C.yellow; } else if(n.type==='gold') { oC = C.yellow; oH = C.white; } else if(n.type==='copper') { oC = C.copper; oH = C.peach; } else if(n.type==='mithril') { oC = C.mithril; oH = C.white; } else if(n.type==='tin') { oC = C.tin; oH = C.white; } else if(n.type==='silver') { oC = C.silver; oH = C.white; } else if(n.type==='adamant') { oC = C.adamant; oH = C.white; } pRect(x+8, y+8, 6, 6, oC); pRect(x+9, y+9, 2, 2, oH); if(game.tick % 60 < 10 && (n.type==='gold' || n.type==='mithril' || n.type==='adamant' || n.type==='silver')) pRect(x+10, y+10, 2, 2, C.white); pRect(x+18, y+16, 5, 5, oC); pRect(x+19, y+17, 2, 2, oH); const hpP = n.hp / n.mhp; pRect(x, y-10, 32, 4, C.black); pRect(x, y-10, hpP*32, 4, hpP > 0.5 ? C.green : C.red); ctx.restore(); }
+        
+        function drawTree(tx, ty) { 
+            pRect(tx+10, ty+20, 10, 20, C.d_brown); pRect(tx, ty, 30, 30, C.d_green); pRect(tx+2, ty+2, 26, 26, '#00a368'); 
+        }
+
+        function drawFloatingTexts() { 
+            ctx.font = "bold 12px sans-serif"; ctx.textAlign = "center"; 
+            for (let i = game.floatingTexts.length - 1; i >= 0; i--) { 
+                let ft = game.floatingTexts[i]; ctx.fillStyle = ft.color; ctx.globalAlpha = ft.life / 40; ctx.fillText(ft.text, ft.x, ft.y); ft.y -= 0.5; ft.life--; 
+                if (ft.life <= 0) game.floatingTexts.splice(i, 1); 
+            } 
+            ctx.globalAlpha = 1.0; ctx.textAlign = "left"; 
+        }
+
+        // MAP OVERLAY CALLS
+        function drawMinimapHUD() {
+            let mx = 640, my = 15;
+            let mw = 145, mh = 95;
+
+            ctx.fillStyle = 'rgba(20, 20, 24, 0.85)';
+            ctx.fillRect(mx, my, mw, mh);
+            ctx.strokeStyle = '#444449';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(mx, my, mw, mh);
+
+            let ratioX = mw / 800;
+            let ratioY = mh / 400;
+
+            const sharpRect = (x, y, w, h, c) => { ctx.fillStyle=c; ctx.fillRect(x, y, w, h); };
+
+            if (game.map === 'OUTDOOR') {
+                sharpRect(mx + 50 * ratioX, my + 30 * ratioY, 100 * ratioX, 100 * ratioY, C.d_gray); // Forge
+                sharpRect(mx + 620 * ratioX, my + 30 * ratioY, 80 * ratioX, 50 * ratioY, 'rgba(0,0,0,0.2)'); // Tools
+                sharpRect(mx + 620 * ratioX, my + 240 * ratioY, 100 * ratioX, 100 * ratioY, C.mithril); // Stall
+                sharpRect(mx + 50 * ratioX, my + 260 * ratioY, 80 * ratioX, 80 * ratioY, C.l_gray); // Assoc
+                sharpRect(mx + 360 * ratioX, my + 240 * ratioY, 80 * ratioX, 60 * ratioY, '#111'); // Smuggler
+                sharpRect(mx + 350 * ratioX, my + 0 * ratioY, 100 * ratioX, 20 * ratioY, C.d_gray); // Cave Entry
+                
+                sharpRect(mx + 50 * ratioX, my + 0 * ratioY, 80 * ratioX, 20 * ratioY, C.dirt); // Estate
+                sharpRect(mx + 700 * ratioX, my + 0 * ratioY, 80 * ratioX, 20 * ratioY, C.red); // Arena
+            } else if (game.map === 'CAVE') {
+                let nList = game.nodes[game.currentArea];
+                if (nList) {
+                    nList.forEach(n => {
+                        if (n.active) sharpRect(mx + n.x * ratioX, my + n.y * ratioY, 3, 3, C.sand);
+                    });
+                }
+            } else if (game.map === 'ESTATE') {
+                sharpRect(mx + 350 * ratioX, my + 200 * ratioY, 60 * ratioX, 40 * ratioY, C.brown);
+                game.decorations.forEach(d => {
+                    sharpRect(mx + d.x * ratioX, my + d.y * ratioY, 3, 3, C.yellow);
+                });
+            } else if (game.map === 'ARENA') {
+                sharpRect(mx + 250 * ratioX, my + 50 * ratioY, 300 * ratioX, 300 * ratioY, 'rgba(255,0,0,0.3)');
+            }
+
+            let sameMap = false;
+            if (otherPlayer && otherPlayer.map === game.map) {
+                if (game.map === 'CAVE') {
+                    if (otherPlayer.currentArea === game.currentArea) sameMap = true;
+                } else { sameMap = true; }
+            }
+            
+            if (sameMap) {
+                ctx.beginPath(); ctx.arc(mx + otherPlayer.x * ratioX, my + otherPlayer.y * ratioY, 2.5, 0, Math.PI*2); ctx.fillStyle=C.purple; ctx.fill();
+            }
+
+            ctx.beginPath(); ctx.arc(mx + game.player.x * ratioX, my + game.player.y * ratioY, 2.5, 0, Math.PI*2); ctx.fillStyle='#00bfff'; ctx.fill();
+            
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.font = 'bold 9px sans-serif';
+            ctx.fillText("MAP: [M]", mx + 4, my + mh - 6);
+        }
+
+        function drawWorldMapOverlay() {
+            if (!game.showMap) return;
+
+            ctx.fillStyle = 'rgba(10, 10, 12, 0.88)';
+            ctx.fillRect(0, 0, 800, 400);
+
+            let bx = 20, by = 20;
+            let bw = 760, bh = 360;
+            
+            const sharpRect = (x, y, w, h, c) => { ctx.fillStyle=c; ctx.fillRect(x, y, w, h); };
+
+            sharpRect(bx, by, bw, bh, '#0d1622');
+            ctx.strokeStyle = '#1e4273';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(bx, by, bw, bh);
+
+            ctx.strokeStyle = 'rgba(30, 66, 115, 0.2)';
+            ctx.lineWidth = 1;
+            for(let x = bx + 20; x < bx + bw; x += 20) {
+                ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(x, by + bh); ctx.stroke();
+            }
+            for(let y = by + 20; y < by + bh; y += 20) {
+                ctx.beginPath(); ctx.moveTo(bx, y); ctx.lineTo(bx + bw, y); ctx.stroke();
+            }
+
+            sharpRect(bx, by, bw, 25, '#142338');
+            ctx.fillStyle = C.white; ctx.font = 'bold 12px sans-serif';
+            ctx.fillText("⚒️ MASTER ARCHITECTURE DIAGRAM - WORLD MAP", bx + 12, by + 16);
+            ctx.fillStyle = '#6fa8dc'; ctx.font = 'bold 10px sans-serif';
+            ctx.fillText("[TAP 'M' TO CLOSE]", bx + bw - 140, by + 16);
+
+            let col1 = bx + 40;
+            ctx.fillStyle = '#4fa3ff'; ctx.font = 'bold 10px sans-serif';
+            ctx.fillText("SERVER ENVIRONMENT CLUSTER NODES:", col1, by + 50);
+
+            let zones = [
+                { map: "OUTDOOR", area: 1, label: "TOWN SQUARE PLAZA HUB [MAIN]", y: by + 80 },
+                { map: "ESTATE", area: 1, label: "PLAYER ESTATE [BUILD]", y: by + 120 },
+                { map: "ARENA", area: 1, label: "GLADIATOR ARENA [PVP]", y: by + 160 },
+                { map: "CAVE", area: 1, label: "SURFACE TUNNELS (L1)", y: by + 200 },
+                { map: "CAVE", area: 2, label: "SILVER CAVERNS (L2)", y: by + 240 },
+                { map: "CAVE", area: 3, label: "THE DEEP CORE (L3)", y: by + 280 }
+            ];
+
+            ctx.strokeStyle = '#2d557e'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(col1 + 60, by + 95); ctx.lineTo(col1 + 60, by + 280); ctx.stroke();
+
+            zones.forEach(z => {
+                let isCurrent = (game.map === z.map && (game.map === 'OUTDOOR' || game.map === 'ESTATE' || game.map === 'ARENA' || game.currentArea === z.area));
+                sharpRect(col1, z.y, 240, 28, isCurrent ? '#1c3654' : '#111c2b');
+                ctx.strokeStyle = isCurrent ? '#00bfff' : '#233d5e'; ctx.lineWidth = 1; ctx.strokeRect(col1, z.y, 240, 28);
+
+                let popCount = 0; 
+                if (isCurrent) popCount++;
+                if (otherPlayer) {
+                    if (otherPlayer.map === z.map && (z.map === 'OUTDOOR' || z.map === 'ESTATE' || z.map === 'ARENA' || otherPlayer.currentArea === z.area)) {
+                        popCount++;
+                    }
+                }
+
+                ctx.fillStyle = isCurrent ? '#00bfff' : C.white; ctx.font = '9px sans-serif';
+                ctx.fillText(`${isCurrent ? "► " : "  "}${z.label}`, col1 + 6, z.y + 17);
+                
+                ctx.fillStyle = popCount > 0 ? C.gold : '#555';
+                ctx.fillText(`[👤 POP: ${popCount}]`, col1 + 175, z.y + 17);
+            });
+
+            let col2 = bx + 360;
+            let mw = 320; 
+            let mh = 250;
+            sharpRect(col2, by + 50, mw, mh, '#090f17');
+            ctx.strokeStyle = '#1a2e47'; ctx.strokeRect(col2, by + 50, mw, mh);
+
+            ctx.fillStyle = '#4fa3ff'; ctx.font = 'bold 10px sans-serif';
+            ctx.fillText(`RADAR SCAN DETAILS: ${game.map === 'OUTDOOR' ? 'TOWN' : game.map === 'ESTATE' ? 'ESTATE' : game.map === 'ARENA' ? 'ARENA' : 'CAVE ' + game.currentArea}`, col2, by + 315);
+
+            let mxX = mw / 800; let mxY = mh / 400;
+            let mTop = by + 50;
+
+            if(game.map === "OUTDOOR") {
+                sharpRect(col2 + 50*mxX, mTop + 30*mxY, 100*mxX, 100*mxY, 'rgba(142,142,147,0.3)'); 
+                sharpRect(col2 + 620*mxX, mTop + 30*mxY, 80*mxX, 50*mxY, 'rgba(0,122,255,0.2)');   
+                sharpRect(col2 + 620*mxX, mTop + 240*mxY, 100*mxX, 100*mxY, 'rgba(52,199,89,0.2)'); 
+                sharpRect(col2 + 50*mxX, mTop + 260*mxY, 80*mxX, 80*mxY, 'rgba(175,82,222,0.2)');   
+                sharpRect(col2 + 360*mxX, mTop + 240*mxY, 80*mxX, 60*mxY, 'rgba(255,0,0,0.2)');     
+                sharpRect(col2 + 350*mxX, mTop + 0*mxY, 100*mxX, 20*mxY, 'rgba(255,255,255,0.2)');
+                sharpRect(col2 + 50*mxX, mTop + 0*mxY, 80*mxX, 20*mxY, 'rgba(0,255,100,0.2)');
+                sharpRect(col2 + 700*mxX, mTop + 0*mxY, 80*mxX, 20*mxY, 'rgba(255,0,0,0.3)');
+
+                ctx.fillStyle = '#8a9ab0'; ctx.font = 'bold 8px sans-serif';
+                ctx.fillText("FORGE", col2 + 65*mxX, mTop + 80*mxY);
+                ctx.fillText("TOOLS", col2 + 635*mxX, mTop + 60*mxY);
+                ctx.fillText("STALL", col2 + 650*mxX, mTop + 295*mxY);
+                ctx.fillText("ASSOC", col2 + 65*mxX, mTop + 300*mxY);
+                ctx.fillText("SMUGGLER", col2 + 365*mxX, mTop + 270*mxY);
+                ctx.fillText("CAVE", col2 + 380*mxX, mTop + 15*mxY);
+                ctx.fillText("ESTATE", col2 + 60*mxX, mTop + 15*mxY);
+                ctx.fillText("ARENA", col2 + 710*mxX, mTop + 15*mxY);
+            } else if (game.map === "ESTATE") {
+                sharpRect(col2 + 350*mxX, mTop + 200*mxY, 60*mxX, 40*mxY, 'rgba(175,82,222,0.3)');
+                ctx.fillStyle = '#8a9ab0'; ctx.font = 'bold 8px sans-serif';
+                ctx.fillText("WORKBENCH", col2 + 355*mxX, mTop + 195*mxY);
+                game.decorations.forEach(d => {
+                    sharpRect(col2 + d.x*mxX, mTop + d.y*mxY, 3, 3, C.yellow);
+                });
+            } else if (game.map === "ARENA") {
+                ctx.strokeStyle = 'rgba(255,0,0,0.5)'; ctx.beginPath(); ctx.arc(col2 + 400*mxX, mTop + 200*mxY, 150*mxX, 0, Math.PI*2); ctx.stroke();
+                ctx.fillStyle = '#8a9ab0'; ctx.fillText("PVP COMBAT ZONE", col2 + 320*mxX, mTop + 50*mxY);
+            } else {
+                let nList = game.nodes[game.currentArea];
+                if (nList) {
+                    nList.forEach(b => {
+                        if (b.active) sharpRect(col2 + b.x*mxX - 2, mTop + b.y*mxY - 2, 5, 5, C.sand);
+                    });
+                    ctx.fillStyle = C.sand; ctx.font = 'bold 8px sans-serif';
+                    let activeCount = nList.filter(n => n.active).length;
+                    ctx.fillText(`[${activeCount} RAW ORE NODES LEFT]`, col2 + 10, mTop + 20);
+                }
+            }
+
+            let sameMap = false;
+            if (otherPlayer && otherPlayer.map === game.map) {
+                if (game.map === 'CAVE') {
+                    if (otherPlayer.currentArea === game.currentArea) sameMap = true;
+                } else {
+                    sameMap = true;
+                }
+            }
+            if (sameMap) {
+                let px = col2 + otherPlayer.x * mxX; let py = mTop + otherPlayer.y * mxY;
+                ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI*2); ctx.fillStyle=C.purple; ctx.fill();
+                ctx.fillStyle = C.purple; ctx.font = 'bold 8px sans-serif';
+                ctx.fillText(`PEER`, px + 6, py + 3);
+            }
+
+            let hx = col2 + game.player.x * mxX; let hy = mTop + game.player.y * mxY;
+            ctx.beginPath(); ctx.arc(hx, hy, 4, 0, Math.PI*2); ctx.fillStyle='#00bfff'; ctx.fill();
+            ctx.fillStyle = '#00bfff'; ctx.font = 'bold 8px sans-serif';
+            ctx.fillText("YOU", hx + 6, hy + 3);
+            
+            ctx.fillStyle = '#5c7290'; ctx.font = 'bold 8px sans-serif';
+            ctx.fillText("LEGEND: ■ Local Player  ■ Net Teammate  ■ Ore Node", col2, by + 335);
+        }
+
+        function update() {
+            game.tick++; 
+            if(game.player.mineAnim > 0) game.player.mineAnim--;
+            if(game.player.attackAnim > 0) game.player.attackAnim--;
+            if(game.player.attackTimer > 0) game.player.attackTimer--;
+            
+            if (game.tick % 1800 === 0) saveGame();
+
+            let stats = getEquipmentStats();
+            game.maxStamina = 100 + ((game.miningLvl - 1) * 10) + stats.stam;
+            game.maxHp = 100 + ((game.miningLvl - 1) * 5) + stats.pow * 2;
+
+            if(game.stamina > game.maxStamina) game.stamina = game.maxStamina;
+            if(game.player.hp > game.maxHp) game.player.hp = game.maxHp;
+
+            if(game.tick % 10 === 0 && game.stamina < game.maxStamina) { game.stamina++; }
+            if(game.tick % 30 === 0 && game.player.hp < game.maxHp && game.map !== 'ARENA') { game.player.hp++; }
+
+            tickMarket();
+            
+            if (peerConn && peerConn.open && game.tick % 2 === 0) {
+                peerConn.send({
+                    type: 'sync',
+                    player: {
+                        x: game.player.x, y: game.player.y, dir: game.player.dir,
+                        mineAnim: game.player.mineAnim, attackAnim: game.player.attackAnim, hp: game.player.hp, map: game.map, walking: game.walking, currentArea: game.currentArea,
+                        weapon: game.equipment.weapon ? game.equipment.weapon.name : null,
+                        pick: game.pick
+                    }
+                });
+            }
+
+            if(game.forgePhase === 'heat') { 
+                game.heat = Math.max(0, game.heat - 0.5); document.getElementById('heat-fill').style.width = game.heat + '%'; 
+                if(game.heat >= 70 && game.heat <= 90) { game.score += 0.6; game.heatTimer++; if(game.heatTimer > 100) startPhase('hammer'); } 
+            } else if(game.forgePhase === 'hammer') { 
+                game.hammerCursor += game.hammerDir; if(game.hammerCursor > 212 || game.hammerCursor < 0) game.hammerDir *= -1; document.getElementById('hammer-cursor').style.left = game.hammerCursor + 'px'; 
+            } else if(game.forgePhase === 'quench') { 
+                if(keys['Space']) { game.quenchProgress += 1.5; game.score += 0.2; if(game.tick%3===0) createParticles(400+(Math.random()-0.5)*40, 200, C.white, 2); document.getElementById('quench-fill').style.width = game.quenchProgress + '%'; if(game.quenchProgress >= 100) finishForge(); } else game.quenchProgress = Math.max(0, game.quenchProgress - 0.7); 
+            } else if(game.testPhase) { 
+                game.hammerCursor += game.hammerDir; if(game.hammerCursor > 212 || game.hammerCursor < 0) game.hammerDir *= -1; document.getElementById('test-cursor').style.left = game.hammerCursor + 'px'; 
+            }
+
+            if(!game.forgePhase && !game.testPhase && !game.isMenuOpen && document.activeElement !== document.getElementById('chat-input')) {
+                let mv = false; 
+                if(keys['KeyW']) { game.player.y -= game.player.speed; mv=true; } 
+                if(keys['KeyS']) { game.player.y += game.player.speed; mv=true; } 
+                if(keys['KeyA']) { game.player.x -= game.player.speed; game.player.dir = -1; mv=true; } 
+                if(keys['KeyD']) { game.player.x += game.player.speed; game.player.dir = 1; mv=true; } 
+                game.walking = mv;
+                
+                // MAP TRANSITIONS
+                if(game.map === 'CAVE' && game.player.y > 370) { game.map = 'OUTDOOR'; game.player.y = 40; game.player.x = 390; } 
+                else if(game.map === 'OUTDOOR' && game.player.y < 20 && game.player.x > 350 && game.player.x < 430) { openMineSelector(); }
+                // ESTATE ENTRANCE / EXIT
+                else if(game.map === 'OUTDOOR' && game.player.y < 20 && game.player.x > 20 && game.player.x < 100) { game.map = 'ESTATE'; game.player.y = 350; }
+                else if(game.map === 'ESTATE' && game.player.y > 370) { game.map = 'OUTDOOR'; game.player.y = 30; game.player.x = 60; }
+                // ARENA ENTRANCE / EXIT
+                else if(game.map === 'OUTDOOR' && game.player.y < 20 && game.player.x > 680 && game.player.x < 780) { game.map = 'ARENA'; game.player.y = 350; game.player.x = 400; game.player.hp = game.maxHp; }
+                else if(game.map === 'ARENA' && game.player.y > 370) { game.map = 'OUTDOOR'; game.player.y = 30; game.player.x = 730; game.player.hp = game.maxHp; }
+                
+                if(game.player.x < 0) game.player.x = 780; if(game.player.x > 800) game.player.x = 0; 
+                if(game.player.y < 0) game.player.y = 0; if(game.player.y > 380) game.player.y = 380;
+            }
+
+            ORES.forEach(o => { let id = o === 'gold' ? 'gold-ore-v' : `${o}-v`; if(document.getElementById(id)) document.getElementById(id).innerText = game.inv[o]; });
+            let bagTotal = Object.values(game.inv).reduce((a,b)=>Number(a)+Number(b),0) + (game.finishedItems ? game.finishedItems.length : 0);
+            
+            document.getElementById('stamina-v').innerText = `${Math.floor(game.stamina)}/${game.maxStamina}`;
+            document.getElementById('hp-v').innerText = `${Math.floor(game.player.hp)}/${game.maxHp}`;
+            let stamCol = C.peach; if (game.stamina < 20) stamCol = C.red; else if (game.stamina >= game.maxStamina) stamCol = C.green;
+            
+            document.getElementById('stamina-v').style.color = stamCol;
+            document.getElementById('bag-v').innerText = `🎒 ${bagTotal}`; 
+            document.getElementById('coins-v').innerText = game.coins; 
+            document.getElementById('pick-v').innerText = game.pick;
+            document.getElementById('license-lvl-v').innerText = game.licenseLvl; 
+            document.getElementById('mine-lvl-v').innerText = game.miningLvl; 
+            document.getElementById('mine-xp-v').innerText = game.miningXp; 
+            document.getElementById('mine-req-v').innerText = game.miningLvl * 100; 
+            document.getElementById('forge-lvl-v').innerText = game.forgeLvl; 
+            document.getElementById('forge-xp-v').innerText = game.forgeXp; 
+            document.getElementById('forge-req-v').innerText = game.forgeLvl * 100;
+        }
+
+        function draw() {
+            ctx.clearRect(0,0,800,400);
+            if (game.map === 'CAVE') { 
+                ctx.fillStyle = C.d_blue; ctx.fillRect(0,0,800,400); pRect(370, 360, 60, 40, C.black); 
+                game.nodes[game.currentArea].forEach(drawNode); 
+                ctx.fillStyle=C.white; ctx.font="bold 10px sans-serif"; ctx.fillText(`AREA ${game.currentArea}`, 10, 20); 
+            } 
+            else if (game.map === 'ESTATE') {
+                ctx.fillStyle = '#3a5941'; ctx.fillRect(0,0,800,400); // Dark green grass background
+                pRect(20, 360, 80, 40, C.dirt); // Exit path to town
+                ctx.fillStyle=C.white; ctx.font="bold 10px sans-serif"; ctx.fillText("TOWN (v)", 60, 395);
+
+                // Decor workbench
+                pRect(350, 200, 60, 40, C.brown);
+                pRect(360, 210, 40, 20, C.d_gray);
+                ctx.fillStyle=C.white; ctx.fillText("WORKBENCH (E)", 380, 195);
+
+                // Draw placed decors
+                game.decorations.forEach(d => {
+                    if (d.type === 'torch') { pRect(d.x, d.y, 4, 15, C.brown); pRect(d.x-2, d.y-4, 8, 8, C.orange); }
+                    else if (d.type === 'statue') { pRect(d.x, d.y, 20, 40, C.l_gray); pRect(d.x+4, d.y+10, 12, 12, C.d_gray); }
+                    else if (d.type === 'banner') { pRect(d.x, d.y, 4, 40, C.brown); pRect(d.x+4, d.y, 20, 30, C.red); }
+                    else if (d.type === 'plant') { pRect(d.x, d.y, 16, 16, C.brown); pRect(d.x-4, d.y-16, 24, 20, '#00a368'); }
+                });
+            }
+            else if (game.map === 'ARENA') {
+                ctx.fillStyle = '#4a0e0e'; ctx.fillRect(0,0,800,400); // Dark red arena floor
+                pRect(350, 360, 100, 40, C.dirt); // Exit path to town
+                ctx.fillStyle=C.white; ctx.font="bold 10px sans-serif"; ctx.fillText("TOWN (v)", 400, 395);
+                
+                // Arena Ring
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(400, 200, 150, 0, Math.PI*2); ctx.stroke();
+                ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
+                ctx.fillStyle = C.white; ctx.fillText("PVP COMBAT ZONE", 400, 40);
+            }
+            else if (game.map === 'OUTDOOR') {
+                ctx.fillStyle = C.d_green; ctx.fillRect(0,0,800,400); 
+                pRect(370, 40, 60, 360, C.dirt); pRect(350, 0, 100, 20, C.d_gray); pRect(370, 0, 60, 40, C.black); ctx.fillStyle=C.white; ctx.font="bold 10px sans-serif"; ctx.fillText("CAVE (E)", 375, 15);
+                
+                // Estate Entrance Path
+                pRect(50, 0, 80, 20, C.dirt); ctx.fillStyle=C.white; ctx.fillText("ESTATE (^)", 90, 15);
+                // Arena Entrance Path
+                pRect(700, 0, 80, 20, C.dirt); ctx.fillStyle=C.white; ctx.fillText("ARENA (^)", 740, 15);
+
+                drawTree(20, 150); drawTree(200, 150); drawTree(370, 150); drawTree(550, 150); drawTree(730, 150);
+                pRect(50, 30, 100, 100, C.d_gray); pRect(90, 70, 30, 40, C.brown); pRect(85, 55, 40, 15, C.l_gray); pRect(80, 58, 5, 12, C.l_gray); pRect(75, 61, 5, 9, C.l_gray); pRect(95, 70, 20, 8, C.mithril); pRect(60, 90, 20, 20, C.brown); pRect(62, 92, 16, 16, C.blue); pRect(60, 90, 20, 3, '#666'); pRect(60, 100, 20, 3, '#666'); ctx.fillStyle=C.white; ctx.fillText("FORGE (E)", 75, 25);
+                pRect(50, 260, 80, 80, C.l_gray); pRect(45, 250, 90, 20, C.blue); pRect(80, 300, 20, 40, C.brown); pRect(82, 320, 4, 4, C.yellow); pRect(60, 280, 15, 15, C.black); pRect(62, 282, 11, 11, C.white); pRect(105, 280, 15, 15, C.black); pRect(107, 282, 11, 11, C.white); ctx.fillStyle=C.white; ctx.fillText("ASSOC (E)", 65, 245);
+                pRect(620, 30, 80, 50, 'rgba(0,0,0,0.2)'); pRect(615, 40, 90, 15, C.blue); pRect(615, 55, 90, 5, C.d_blue); pRect(625, 55, 5, 40, C.brown); pRect(690, 55, 5, 40, C.brown); pRect(620, 70, 80, 15, C.d_brown); pRect(655, 73, 16, 4, C.l_gray); pRect(661, 65, 4, 15, C.brown); ctx.fillStyle=C.white; ctx.fillText("TOOLS (E)", 635, 35);
+                pRect(620, 240, 100, 100, C.mithril); pRect(625, 245, 90, 90, C.d_purple); pRect(630, 250, 80, 80, C.mithril); pRect(630, 285, 80, 10, C.brown); pRect(635, 295, 5, 20, C.d_brown); pRect(700, 295, 5, 20, C.d_brown); pRect(640, 275, 10, 10, C.blue); pRect(644, 271, 2, 4, C.l_gray); pRect(680, 278, 6, 7, C.brown); pRect(690, 276, 8, 9, C.yellow); pRect(660, 270, 20, 20, C.d_green); pRect(662, 255, 16, 16, C.peach); pRect(662, 255, 16, 4, C.d_gray); pRect(660, 257, 2, 8, C.d_gray); pRect(678, 257, 2, 8, C.d_gray); pRect(666, 267, 8, 4, C.l_gray); pRect(658, 251, 24, 6, C.red); pRect(664, 245, 12, 6, C.red); ctx.fillStyle=C.black; ctx.fillText("STALL (E)", 645, 305);
+                
+                // --- SMUGGLER'S DEN ---
+                pRect(360, 240, 80, 60, '#111'); pRect(365, 245, 70, 20, '#222'); pRect(390, 265, 20, 20, C.d_purple); pRect(392, 270, 16, 4, C.black); pRect(396, 275, 4, 4, C.l_gray); ctx.fillStyle = C.l_gray; ctx.fillText("SMUGGLER (E)", 365, 315);
+            }
+            
+            drawParticles(); 
+            drawPlayer(game.player.x, game.player.y, game, false); 
+            
+            let sameMap = false;
+            if (otherPlayer && otherPlayer.map === game.map) {
+                if (game.map === 'CAVE') {
+                    if (otherPlayer.currentArea === game.currentArea) sameMap = true;
+                } else {
+                    sameMap = true;
+                }
+            }
+            if (sameMap) {
+                drawPlayer(otherPlayer.x, otherPlayer.y, { player: otherPlayer, walking: otherPlayer.walking, tick: game.tick }, true);
+            }
+            
+            drawFloatingTexts(); 
+            const g = ctx.createRadialGradient(400,200,150,400,200,450); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.5)'); ctx.fillStyle=g; ctx.fillRect(0,0,800,400);
+
+            // MAP OVERLAY CALLS
+            if (game.showMinimap) drawMinimapHUD();
+            drawWorldMapOverlay();
+
+            update(); requestAnimationFrame(draw);
+        }
+
+        function pRect(x,y,w,h,c) { ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h)); }
+        function createParticles(x,y,col,count) { for(let i=0;i<count;i++) game.particles.push({x,y,vx:(Math.random()-0.5)*5,vy:(Math.random()-0.5)*5,life:25,col}); }
+        function drawParticles() { 
+            for (let i = game.particles.length - 1; i >= 0; i--) {
+                let p = game.particles[i];
+                p.x += p.vx; p.y += p.vy; p.life--; 
+                ctx.fillStyle = p.col; ctx.fillRect(p.x, p.y, 3, 3); 
+                if (p.life <= 0) game.particles.splice(i, 1);
+            }
+        }
+        function dist(x1,y1,x2,y2) { return Math.sqrt((x2-x1)**2+(y2-y1)**2); }
+        function closeMenus() { 
+            if (game.tradeState && game.tradeState.active) {
+                game.finishedItems.push(...game.tradeState.myOffer.items); game.tradeState.myOffer.items = []; game.tradeState.active = false;
+                if(peerConn && peerConn.open) peerConn.send({ type: 'trade_cancel' });
+            }
+            game.isMenuOpen = false; const menus = document.querySelectorAll('.game-menu'); menus.forEach(m => m.style.display = 'none'); game.testPhase = false; 
+        }
+    </script>
+</body>
+</html>
