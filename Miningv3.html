@@ -5,13 +5,14 @@
     <title>Master Blacksmith: Synchronized Multiplayer Update</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #1a1a1c; color: #d7d7d8; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 10px; overflow: hidden; }
+        body { background: #1a1a1c; color: #d7d7d8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 10px; overflow: hidden; }
         
         #ui-bar { width: 750px; display: flex; flex-direction: column; background: #2b2b2e; border: 4px solid #444449; border-bottom: none; font-size: 0.70rem; font-weight: bold; }
         .ui-row { display: flex; flex-wrap: wrap; justify-content: space-around; padding: 6px 10px; gap: 5px; }
         .ui-row:first-child { border-bottom: 2px solid #1a1a1c; background: #222225; }
         
-        canvas { background: #222225; border: 4px solid #444449; image-rendering: pixelated; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        /* Removed image-rendering: pixelated; to allow ultra-smooth text and graphics */
+        canvas { background: #222225; border: 4px solid #444449; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
         
         /* Unified Menu Styling */
         .game-menu { position: absolute; top: 220px; left: 50%; transform: translate(-50%, -50%); background: #2b2b2e; border: 4px solid #444449; padding: 20px; display: none; width: 340px; z-index: 10; text-align: center; box-shadow: 0 0 0 4px #1a1a1c, 0 10px 30px rgba(0,0,0,0.8); }
@@ -47,7 +48,7 @@
         #complex-forge, #test-menu { width: 340px; border-color: #ffac30; }
         #forge-result { width: 340px; border-color: #00e436; z-index: 20; }
 
-        #result-icon-container { background: #111; border: 4px solid #444449; width: 128px; height: 128px; margin: 10px auto; display: flex; align-items: center; justify-content: center; image-rendering: pixelated; }
+        #result-icon-container { background: #111; border: 4px solid #444449; width: 128px; height: 128px; margin: 10px auto; display: flex; align-items: center; justify-content: center; }
 
         .inventory-item { background: #36363b; margin: 8px 0; padding: 10px; border: 2px solid #444449; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center; }
         .inventory-item:hover:not(.disabled-item) { border-color: #ffac30; background: #444449; transform: scale(1.02); }
@@ -82,7 +83,7 @@
         button:active { transform: scale(0.95); }
         
         .forge-setup-container { display: flex; gap: 15px; align-items: center; justify-content: center; }
-        #crucibleCanvas { background: #222; border: 3px solid #111; border-radius: 8px; image-rendering: pixelated; box-shadow: inset 0 0 10px #000; }
+        #crucibleCanvas { background: #222; border: 3px solid #111; border-radius: 8px; box-shadow: inset 0 0 10px #000; }
         
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #1a1a1c; }
@@ -1102,7 +1103,7 @@
         }
 
         function drawFloatingTexts() { 
-            ctx.font = "bold 12px Courier"; ctx.textAlign = "center"; 
+            ctx.font = "bold 12px sans-serif"; ctx.textAlign = "center"; 
             for (let i = game.floatingTexts.length - 1; i >= 0; i--) { 
                 let ft = game.floatingTexts[i]; ctx.fillStyle = ft.color; ctx.globalAlpha = ft.life / 40; ctx.fillText(ft.text, ft.x, ft.y); ft.y -= 0.5; ft.life--; 
                 if (ft.life <= 0) game.floatingTexts.splice(i, 1); 
@@ -1112,7 +1113,6 @@
 
         // MAP OVERLAY CALLS
         function drawMinimapHUD() {
-            // Increased size for higher resolution/detail map viewing
             let mx = 440, my = 15;
             let mw = 145, mh = 95;
 
@@ -1125,7 +1125,6 @@
             let ratioX = mw / 600;
             let ratioY = mh / 400;
 
-            // Helper for crisp un-rounded rendering directly onto the canvas (avoids jagged edges)
             const sharpRect = (x, y, w, h, c) => { ctx.fillStyle=c; ctx.fillRect(x, y, w, h); };
 
             if (game.map === 'OUTDOOR') {
@@ -1151,7 +1150,6 @@
                 } else { sameMap = true; }
             }
             
-            // Draw clean floating point arcs for players instead of rounded blocky rectangles
             if (sameMap) {
                 ctx.beginPath(); ctx.arc(mx + otherPlayer.x * ratioX, my + otherPlayer.y * ratioY, 2.5, 0, Math.PI*2); ctx.fillStyle=C.purple; ctx.fill();
             }
@@ -1159,7 +1157,7 @@
             ctx.beginPath(); ctx.arc(mx + game.player.x * ratioX, my + game.player.y * ratioY, 2.5, 0, Math.PI*2); ctx.fillStyle='#00bfff'; ctx.fill();
             
             ctx.fillStyle = 'rgba(255,255,255,0.6)';
-            ctx.font = '9px "Courier New"';
+            ctx.font = 'bold 9px sans-serif';
             ctx.fillText("MAP: [M]", mx + 4, my + mh - 6);
         }
 
@@ -1189,13 +1187,13 @@
             }
 
             sharpRect(bx, by, bw, 25, '#142338');
-            ctx.fillStyle = C.white; ctx.font = 'bold 12px "Courier New"';
+            ctx.fillStyle = C.white; ctx.font = 'bold 12px sans-serif';
             ctx.fillText("⚒️ MASTER ARCHITECTURE DIAGRAM - WORLD MAP", bx + 12, by + 16);
-            ctx.fillStyle = '#6fa8dc'; ctx.font = '10px "Courier New"';
+            ctx.fillStyle = '#6fa8dc'; ctx.font = 'bold 10px sans-serif';
             ctx.fillText("[TAP 'M' TO CLOSE]", bx + bw - 140, by + 16);
 
             let col1 = bx + 25;
-            ctx.fillStyle = '#4fa3ff'; ctx.font = 'bold 10px "Courier New"';
+            ctx.fillStyle = '#4fa3ff'; ctx.font = 'bold 10px sans-serif';
             ctx.fillText("SERVER ENVIRONMENT CLUSTER NODES:", col1, by + 50);
 
             let zones = [
@@ -1223,7 +1221,7 @@
                     }
                 }
 
-                ctx.fillStyle = isCurrent ? '#00bfff' : C.white; ctx.font = '9px "Courier New"';
+                ctx.fillStyle = isCurrent ? '#00bfff' : C.white; ctx.font = 'bold 9px sans-serif';
                 ctx.fillText(`${isCurrent ? "► " : "  "}${z.label}`, col1 + 6, z.y + 17);
                 
                 ctx.fillStyle = popCount > 0 ? C.gold : '#555';
@@ -1236,7 +1234,7 @@
             sharpRect(col2, by + 50, mw, mh, '#090f17');
             ctx.strokeStyle = '#1a2e47'; ctx.strokeRect(col2, by + 50, mw, mh);
 
-            ctx.fillStyle = '#4fa3ff'; ctx.font = 'bold 10px "Courier New"';
+            ctx.fillStyle = '#4fa3ff'; ctx.font = 'bold 10px sans-serif';
             ctx.fillText(`RADAR SCAN DETAILS: ${game.map === 'OUTDOOR' ? 'TOWN' : 'CAVE ' + game.currentArea}`, col2, by + 315);
 
             let mxX = mw / 600; let mxY = mh / 400;
@@ -1250,7 +1248,7 @@
                 sharpRect(col2 + 260*mxX, mTop + 240*mxY, 80*mxX, 60*mxY, 'rgba(255,0,0,0.2)');     
                 sharpRect(col2 + 250*mxX, mTop + 0*mxY, 100*mxX, 20*mxY, 'rgba(255,255,255,0.2)');  
 
-                ctx.fillStyle = '#8a9ab0'; ctx.font = '8px "Courier New"';
+                ctx.fillStyle = '#8a9ab0'; ctx.font = 'bold 8px sans-serif';
                 ctx.fillText("FORGE", col2 + 65*mxX, mTop + 80*mxY);
                 ctx.fillText("TOOLS", col2 + 435*mxX, mTop + 60*mxY);
                 ctx.fillText("STALL", col2 + 450*mxX, mTop + 295*mxY);
@@ -1264,7 +1262,7 @@
                     nList.forEach(b => {
                         if (b.active) sharpRect(col2 + b.x*mxX - 2, mTop + b.y*mxY - 2, 4, 4, C.sand);
                     });
-                    ctx.fillStyle = C.sand; ctx.font = '8px "Courier New"';
+                    ctx.fillStyle = C.sand; ctx.font = 'bold 8px sans-serif';
                     let activeCount = nList.filter(n => n.active).length;
                     ctx.fillText(`[${activeCount} RAW ORE NODES LEFT]`, col2 + 10, mTop + 20);
                 }
@@ -1281,16 +1279,16 @@
             if (sameMap) {
                 let px = col2 + otherPlayer.x * mxX; let py = mTop + otherPlayer.y * mxY;
                 ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI*2); ctx.fillStyle=C.purple; ctx.fill();
-                ctx.fillStyle = C.purple; ctx.font = 'bold 8px "Courier New"';
+                ctx.fillStyle = C.purple; ctx.font = 'bold 8px sans-serif';
                 ctx.fillText(`PEER`, px + 6, py + 3);
             }
 
             let hx = col2 + game.player.x * mxX; let hy = mTop + game.player.y * mxY;
             ctx.beginPath(); ctx.arc(hx, hy, 4, 0, Math.PI*2); ctx.fillStyle='#00bfff'; ctx.fill();
-            ctx.fillStyle = '#00bfff'; ctx.font = 'bold 8px "Courier New"';
+            ctx.fillStyle = '#00bfff'; ctx.font = 'bold 8px sans-serif';
             ctx.fillText("YOU", hx + 6, hy + 3);
             
-            ctx.fillStyle = '#5c7290'; ctx.font = '8px "Courier New"';
+            ctx.fillStyle = '#5c7290'; ctx.font = 'bold 8px sans-serif';
             ctx.fillText("LEGEND: ■ Local Player  ■ Net Teammate  ■ Ore Node", col2, by + 335);
         }
 
@@ -1365,10 +1363,10 @@
             if (game.map === 'CAVE') { 
                 ctx.fillStyle = C.d_blue; ctx.fillRect(0,0,600,400); pRect(270, 360, 60, 40, C.black); 
                 game.nodes[game.currentArea].forEach(drawNode); 
-                ctx.fillStyle=C.white; ctx.font="bold 10px Courier"; ctx.fillText(`AREA ${game.currentArea}`, 10, 20); 
+                ctx.fillStyle=C.white; ctx.font="bold 10px sans-serif"; ctx.fillText(`AREA ${game.currentArea}`, 10, 20); 
             } 
             else if (game.map === 'OUTDOOR') {
-                ctx.fillStyle = C.d_green; ctx.fillRect(0,0,600,400); pRect(270, 40, 60, 360, C.dirt); pRect(250, 0, 100, 20, C.d_gray); pRect(270, 0, 60, 40, C.black); ctx.fillStyle=C.white; ctx.font="bold 10px Courier"; ctx.fillText("CAVE (E)", 275, 15);
+                ctx.fillStyle = C.d_green; ctx.fillRect(0,0,600,400); pRect(270, 40, 60, 360, C.dirt); pRect(250, 0, 100, 20, C.d_gray); pRect(270, 0, 60, 40, C.black); ctx.fillStyle=C.white; ctx.font="bold 10px sans-serif"; ctx.fillText("CAVE (E)", 275, 15);
                 drawTree(20, 150); drawTree(200, 150); drawTree(370, 150); drawTree(550, 150);
                 pRect(50, 30, 100, 100, C.d_gray); pRect(90, 70, 30, 40, C.brown); pRect(85, 55, 40, 15, C.l_gray); pRect(80, 58, 5, 12, C.l_gray); pRect(75, 61, 5, 9, C.l_gray); pRect(95, 70, 20, 8, C.mithril); pRect(60, 90, 20, 20, C.brown); pRect(62, 92, 16, 16, C.blue); pRect(60, 90, 20, 3, '#666'); pRect(60, 100, 20, 3, '#666'); ctx.fillStyle=C.white; ctx.fillText("FORGE (E)", 75, 25);
                 pRect(50, 260, 80, 80, C.l_gray); pRect(45, 250, 90, 20, C.blue); pRect(80, 300, 20, 40, C.brown); pRect(82, 320, 4, 4, C.yellow); pRect(60, 280, 15, 15, C.black); pRect(62, 282, 11, 11, C.white); pRect(105, 280, 15, 15, C.black); pRect(107, 282, 11, 11, C.white); ctx.fillStyle=C.white; ctx.fillText("ASSOC (E)", 65, 245);
