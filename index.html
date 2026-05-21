@@ -2,16 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Master Blacksmith: Synchronized Multiplayer Update</title>
+    <title>Master Blacksmith: Widescreen Multiplayer Update</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { background: #1a1a1c; color: #d7d7d8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 10px; overflow: hidden; }
         
-        #ui-bar { width: 750px; display: flex; flex-direction: column; background: #2b2b2e; border: 4px solid #444449; border-bottom: none; font-size: 0.70rem; font-weight: bold; }
+        #ui-bar { width: 800px; display: flex; flex-direction: column; background: #2b2b2e; border: 4px solid #444449; border-bottom: none; font-size: 0.70rem; font-weight: bold; }
         .ui-row { display: flex; flex-wrap: wrap; justify-content: space-around; padding: 6px 10px; gap: 5px; }
         .ui-row:first-child { border-bottom: 2px solid #1a1a1c; background: #222225; }
         
-        /* Removed image-rendering: pixelated; to allow ultra-smooth text and graphics */
         canvas { background: #222225; border: 4px solid #444449; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
         
         /* Unified Menu Styling */
@@ -25,14 +24,15 @@
         #mine-selector-menu { border-color: #5f574f; }
         #system-menu { border-color: #C2C3C7; width: 280px; }
         #trade-menu { border-color: #29adff; width: 500px; }
+        #decor-menu { border-color: #ff77a8; }
         
         /* Backpack Expanded for Paper Doll */
         #backpack-menu { border-color: #ab5236; width: 580px; }
-        .backpack-layout { display: flex; gap: 15px; text-align: left; height: 280px; margin-bottom: 15px; }
+        .backpack-layout { display: flex; gap: 15px; text-align: left; height: 320px; margin-bottom: 15px; }
         
         /* Paper Doll Equipment Layout */
         .equipment-panel { width: 220px; background: #222; border: 2px solid #5f574f; padding: 10px; display: flex; flex-direction: column; align-items: center; justify-content: space-around; position: relative; border-radius: 8px; }
-        .doll-bg { position: absolute; width: 80px; height: 180px; background: #1a1a1c; border-radius: 40px; z-index: 0; opacity: 0.5; border: 2px dashed #444; }
+        .doll-bg { position: absolute; width: 80px; height: 210px; background: #1a1a1c; border-radius: 40px; z-index: 0; opacity: 0.5; border: 2px dashed #444; }
         .equip-slot { background: #36363b; border: 2px solid #444449; border-radius: 4px; padding: 5px; width: 140px; z-index: 1; text-align: center; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; min-height: 38px; display:flex; flex-direction: column; justify-content: center;}
         .equip-slot:hover { border-color: #ff004d; background: #4a202a; }
         .equip-slot.filled { border-color: #ffac30; background: #444449; cursor: pointer; }
@@ -91,12 +91,27 @@
         ::-webkit-scrollbar-thumb:hover { background: #ffac30; }
         
         .sys-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 5px; }
+
+        /* Chat System UI */
+        #chat-container { position: absolute; bottom: 10px; left: 10px; width: 250px; background: rgba(0,0,0,0.6); border: 2px solid #444; border-radius: 4px; display: flex; flex-direction: column; z-index: 5; pointer-events: none; }
+        #chat-messages { height: 100px; overflow-y: auto; padding: 5px; font-size: 0.65rem; color: #fff; display: flex; flex-direction: column; gap: 2px; pointer-events: auto; text-align: left; font-family: inherit; }
+        #chat-input-area { display: flex; padding: 2px; border-top: 1px solid #444; pointer-events: auto; }
+        #chat-input { background: #111; border: 1px solid #333; color: #fff; width: 100%; font-family: inherit; font-size: 0.65rem; padding: 3px; outline: none; }
+        .chat-msg { word-wrap: break-word; }
+        .chat-me { color: #00e436; }
+        .chat-them { color: #29adff; }
+        .chat-sys { color: #ffccaa; font-style: italic; }
+        
+        #chat-messages::-webkit-scrollbar { width: 4px; }
+        #chat-messages::-webkit-scrollbar-track { background: transparent; }
+        #chat-messages::-webkit-scrollbar-thumb { background: #444; }
     </style>
 </head>
 <body>
 
     <div id="ui-bar">
         <div class="ui-row">
+            <span>❤️ HP: <b id="hp-v" style="color:#ff004d">100/100</b></span>
             <span>⚡ STAMINA: <b id="stamina-v" style="color:#ffccaa">100/100</b></span>
             <span>COAL: <b id="coal-v" style="color:#c2c3c7">0</b></span>
             <span>TIN: <b id="tin-v" style="color:#9badb7">0</b></span>
@@ -118,7 +133,15 @@
         </div>
     </div>
 
-    <canvas id="gameCanvas" width="600" height="400"></canvas>
+    <div style="position: relative; width: 800px; height: 400px; margin: 10px 0;">
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <div id="chat-container">
+            <div id="chat-messages"></div>
+            <div id="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Press Enter to chat..." autocomplete="off">
+            </div>
+        </div>
+    </div>
 
     <div id="backpack-menu" class="game-menu">
         <h3 style="color:#ab5236; margin-top:0;">🎒 EQUIPMENT & INVENTORY</h3>
@@ -136,6 +159,9 @@
                 </div>
                 <div id="slot-hand" class="equip-slot" onclick="unequipItem('hand')" title="Click to unequip">
                     <div class="slot-label">💍 HAND</div><div class="slot-name" style="color:#666;">Empty</div>
+                </div>
+                <div id="slot-weapon" class="equip-slot" onclick="unequipItem('weapon')" title="Click to unequip">
+                    <div class="slot-label">⚔️ WEAPON</div><div class="slot-name" style="color:#666;">Empty</div>
                 </div>
             </div>
             <div class="inventory-panel">
@@ -244,7 +270,14 @@
     <div id="test-menu" class="game-menu"><h3 style="color:#83769c; margin:0;">MINING TEST</h3><p style="font-size: 0.7rem; color: #aaa;">Hit SPACE when centered to crack the boulder!</p><div class="work-zone"><div class="hammer-bar"><div id="test-target" class="target-zone"></div><div id="test-cursor" class="cursor"></div></div><p>Hits Required: (<span id="test-hit-count">0</span>/3)</p></div></div>
     <div id="forge-result" class="game-menu"><h3 id="result-title" style="color:#00e436; margin-top:0;">SUCCESS!</h3><div id="result-icon-container"></div><div id="result-details" style="background:#111; padding: 10px; margin: 10px 0; border: 2px solid #5f574f;"></div><button onclick="closeMenus()" style="background:#5f574f; color:white;">AWESOME</button></div>
     
-    <div class="controls-hint">WASD:Move | E:Interact/Mine | SPACE:Action | B:Backpack | T:Trade Player | M:Map Overlay</div>
+    <div id="decor-menu" class="game-menu" style="border-color: #ff77a8;">
+        <h3 style="color:#ff77a8; margin-top:0;">🏡 ESTATE DECORATOR</h3>
+        <p style="font-size:0.7rem; color:#aaa; margin-top:-10px;">Craft and place decorations in your estate.</p>
+        <div id="decor-list" style="max-height: 220px; overflow-y: auto; margin-bottom:10px;"></div>
+        <button onclick="closeMenus()" style="background:#5f574f; color:white;">LEAVE</button>
+    </div>
+
+    <div class="controls-hint">WASD:Move | E:Interact/Mine | SPACE:Action/Attack | B:Bag | T:Trade | ENTER:Chat | M:Map | N:Minimap | H:Chat</div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -263,18 +296,27 @@
         const shopItems = [ { name: 'Bronze', power: 3, price: 500 }, { name: 'Iron', power: 4, price: 1000 }, { name: 'Steel', power: 6, price: 2500 }, { name: 'Gold', power: 8, price: 5000 }, { name: 'Mithril', power: 12, price: 12000 }, { name: 'Adamant', power: 20, price: 30000 } ];
         const licenseData = [ { id: 1, name: "Surface Tunnels", reqLvl: 1, cost: 0, ores: ['coal', 'tin', 'copper', 'iron'], color: C.l_gray }, { id: 2, name: "Silver Caverns", reqLvl: 5, cost: 1500, ores: ['iron', 'silver', 'gold', 'coal'], color: C.silver }, { id: 3, name: "The Deep Core", reqLvl: 12, cost: 8000, ores: ['mithril', 'adamant', 'gold', 'silver'], color: C.adamant } ];
 
+        const decorItems = [ 
+            { name: 'Torch', type: 'torch', cost: 10, mat: 'coal', matCost: 5 },
+            { name: 'Banner', type: 'banner', cost: 50, mat: 'copper', matCost: 5 },
+            { name: 'Stone Statue', type: 'statue', cost: 150, mat: 'iron', matCost: 10 },
+            { name: 'Potted Plant', type: 'plant', cost: 25, mat: 'tin', matCost: 2 } 
+        ];
+
         let game = {
             tick: 0, map: 'OUTDOOR', currentArea: 1, coins: 0, 
-            stamina: 100, maxStamina: 100, 
+            stamina: 100, maxStamina: 100,
+            maxHp: 100, 
             inv: { coal: 0, tin: 0, copper: 0, iron: 0, silver: 0, gold: 0, mithril: 0, adamant: 0 },
-            finishedItems: [], equipment: { head: null, neck: null, body: null, hand: null }, 
+            finishedItems: [], equipment: { head: null, neck: null, body: null, hand: null, weapon: null }, 
             pick: 'Stone', power: 1, miningLvl: 1, miningXp: 0, forgeLvl: 1, forgeXp: 0, licenseLvl: 1,
             floatingTexts: [],
-            player: { x: 280, y: 100, w: 20, h: 26, speed: 4, dir: 1, walking: false, mineAnim: 0 },
+            player: { x: 380, y: 100, w: 20, h: 26, speed: 4, dir: 1, walking: false, mineAnim: 0, hp: 100, attackTimer: 0, attackAnim: 0 },
             nodes: { 1: [], 2: [], 3: [] }, particles: [], forgePhase: '', testPhase: false, isMenuOpen: false,
             score: 0, heat: 0, heatTimer: 0, hammerHits: 0, hammerCursor: 0, hammerDir: 5, quenchProgress: 0, testHits: 0,
             popularity: 100, marketItem: null, marketNpc: null, marketTimer: 0,
-            isHost: true, showMap: false,
+            isHost: true, showMap: false, showMinimap: true, showChat: true,
+            decorations: [],
             
             tradeState: { active: false, myOffer: { coins: 0, items: [] }, theirOffer: { coins: 0, items: [] }, myReady: false, theirReady: false }
         };
@@ -285,6 +327,15 @@
         let peer = null;
         let peerConn = null;
         let otherPlayer = null;
+
+        function addChatMessage(msg, senderClass) {
+            const chatMessages = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = `chat-msg ${senderClass}`;
+            div.innerText = msg;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
 
         function hostMultiplayer() {
             try {
@@ -331,16 +382,35 @@
         function setupConnection() {
             document.getElementById('mp-status').innerHTML = "<span style='color:#00e436'>Connected! Player 2 is in your world.</span>";
             addFloatingText(game.player.x, game.player.y - 20, "LINK ESTABLISHED!", C.green);
+            addChatMessage("System: Connected to Peer!", "chat-sys");
             
             if (game.isHost) {
-                peerConn.send({ type: 'world_sync', nodes: game.nodes });
+                // TRUE SYNC: Sends everything needed to completely load the host's world
+                peerConn.send({ 
+                    type: 'world_sync', 
+                    nodes: game.nodes, 
+                    decorations: game.decorations,
+                    hostMap: game.map,
+                    hostArea: game.currentArea,
+                    hostX: game.player.x,
+                    hostY: game.player.y
+                });
             }
 
             peerConn.on('data', (data) => {
                 if(data.type === 'sync') {
                     otherPlayer = data.player;
                 } else if (data.type === 'world_sync') {
+                    // OVERWRITE local arrays with the host's exact world map
                     game.nodes = data.nodes;
+                    if (data.decorations) game.decorations = data.decorations;
+                    game.map = data.hostMap;
+                    game.currentArea = data.hostArea;
+                    game.player.x = data.hostX;
+                    game.player.y = data.hostY + 25; // Spawn client just below host
+                    game.player.hp = game.maxHp;
+                    
+                    addFloatingText(game.player.x, game.player.y - 10, "JOINED HOST WORLD", C.green);
                 } else if (data.type === 'mine_node') {
                     let nList = game.nodes[data.area];
                     if (nList) {
@@ -417,11 +487,37 @@
                         addFloatingText(game.player.x, game.player.y - 10, "TRADE CANCELLED", C.red);
                     }
                 }
+                else if (data.type === 'chat') {
+                    addChatMessage("Peer: " + data.text, "chat-them");
+                }
+                else if (data.type === 'place_decor') {
+                    game.decorations.push(data.decor);
+                }
+                // ARENA PVP DAMAGE RECEIVER
+                else if (data.type === 'pvp_damage') {
+                    if (game.map === 'ARENA') {
+                        game.player.hp -= data.amt;
+                        addFloatingText(game.player.x, game.player.y - 20, `-${data.amt}`, C.red);
+                        createParticles(game.player.x, game.player.y, C.red, 15);
+                        
+                        if (game.player.hp <= 0) {
+                            game.player.hp = game.maxHp;
+                            game.map = 'OUTDOOR'; // Respawn to Town
+                            game.player.x = 400;
+                            game.player.y = 200;
+                            addFloatingText(game.player.x, game.player.y - 20, "DEFEATED", C.red);
+                            if (peerConn && peerConn.open) {
+                                peerConn.send({ type: 'chat', text: "I was defeated in the Arena!" });
+                            }
+                        }
+                    }
+                }
             });
             
             peerConn.on('close', () => {
                 otherPlayer = null;
                 document.getElementById('mp-status').innerHTML = "<span style='color:#ff004d'>Disconnected from Player 2</span>";
+                addChatMessage("System: Peer disconnected.", "chat-sys");
             });
         }
 
@@ -524,7 +620,8 @@
                 miningLvl: game.miningLvl, miningXp: game.miningXp,
                 forgeLvl: game.forgeLvl, forgeXp: game.forgeXp,
                 licenseLvl: game.licenseLvl, popularity: game.popularity,
-                marketItem: game.marketItem, marketNpc: game.marketNpc, marketTimer: game.marketTimer
+                marketItem: game.marketItem, marketNpc: game.marketNpc, marketTimer: game.marketTimer,
+                decorations: game.decorations
             };
         }
 
@@ -533,7 +630,8 @@
             game.stamina = data.stamina || 100;
             game.inv = data.inv || { coal: 0, tin: 0, copper: 0, iron: 0, silver: 0, gold: 0, mithril: 0, adamant: 0 };
             game.finishedItems = data.finishedItems || [];
-            game.equipment = data.equipment || { head: null, neck: null, body: null, hand: null };
+            game.equipment = data.equipment || { head: null, neck: null, body: null, hand: null, weapon: null };
+            if (game.equipment.weapon === undefined) game.equipment.weapon = null;
             game.pick = data.pick || 'Stone'; 
             game.power = data.power || 1;
             game.miningLvl = data.miningLvl || 1; 
@@ -545,6 +643,7 @@
             game.marketItem = data.marketItem || null; 
             game.marketNpc = data.marketNpc || null;
             game.marketTimer = data.marketTimer || 0;
+            game.decorations = data.decorations || [];
         }
 
         function saveGame() {
@@ -621,6 +720,34 @@
             document.getElementById('system-menu').style.display = 'block'; 
         }
 
+        function openDecorMenu() {
+            game.isMenuOpen = true; 
+            const list = document.getElementById('decor-list'); 
+            list.innerHTML = ''; 
+            decorItems.forEach(item => {
+                const div = document.createElement('div');
+                const canAfford = game.coins >= item.cost && game.inv[item.mat] >= item.matCost;
+                div.className = 'inventory-item' + (!canAfford ? ' disabled-item' : ''); 
+                div.innerHTML = `<div><b style="color:#29adff;">${item.name}</b><br><span style="font-size:0.6rem; color:#aaa;">Costs: ${item.cost}C, ${item.matCost} ${item.mat.toUpperCase()}</span></div><div class="gold-v">PLACE</div>`; 
+                if(canAfford){ 
+                    div.onclick = () => { 
+                        game.coins -= item.cost; 
+                        game.inv[item.mat] -= item.matCost; 
+                        game.decorations.push({ type: item.type, x: game.player.x, y: game.player.y });
+                        createParticles(game.player.x, game.player.y, C.green, 20); 
+                        addFloatingText(game.player.x, game.player.y-10, "Placed!", C.green); 
+                        if(peerConn && peerConn.open) {
+                            peerConn.send({ type: 'place_decor', decor: { type: item.type, x: game.player.x, y: game.player.y }});
+                        }
+                        openDecorMenu(); 
+                        saveGame(); 
+                    }; 
+                } 
+                list.appendChild(div);
+            });
+            document.getElementById('decor-menu').style.display = 'block';
+        }
+
         window.onload = () => { 
             try {
                 loadGame(); 
@@ -646,7 +773,7 @@
 
                 let attempts = 0;
                 while(attempts < 50) {
-                    let nx = 50 + Math.random() * 500; let ny = 50 + Math.random() * 250;
+                    let nx = 50 + Math.random() * 700; let ny = 50 + Math.random() * 250;
                     let tooClose = game.nodes[areaId].some(n => dist(nx, ny, n.x, n.y) < 60);
                     if(ny < 330 && !tooClose) { game.nodes[areaId].push({ x: nx, y: ny, type: nodeType, hp: 5, mhp: 5, active: true, shake: 0 }); break; } attempts++;
                 }
@@ -655,15 +782,57 @@
 
         const keys = {};
         window.onkeydown = (e) => { 
+            // CHAT INPUT LOGIC - Block WASD if actively typing in the chat
+            const chatInput = document.getElementById('chat-input');
+            if (document.activeElement === chatInput) {
+                if (e.code === 'Enter') {
+                    const text = chatInput.value.trim();
+                    if (text) {
+                        addChatMessage("You: " + text, "chat-me");
+                        if (peerConn && peerConn.open) {
+                            peerConn.send({ type: 'chat', text: text });
+                        }
+                        chatInput.value = '';
+                    }
+                    chatInput.blur(); // Unfocus after sending
+                }
+                return; // Stop any further keys if chatting
+            }
+            
+            // Pressing Enter outside of chat instantly focuses it
+            if (e.code === 'Enter') {
+                if (!game.showChat) {
+                    game.showChat = true;
+                    document.getElementById('chat-container').style.display = 'flex';
+                    addFloatingText(game.player.x, game.player.y - 30, "CHAT VISIBLE", C.white);
+                }
+                chatInput.focus();
+                e.preventDefault();
+                return;
+            }
+
             keys[e.code] = true; 
             if(e.code === 'KeyE') handleE(); 
             if(e.code === 'Space') handleSpace();
             if(e.code === 'KeyB') toggleBackpack(); 
             if(e.code === 'KeyT') handleT(); 
             if(e.code === 'KeyM') game.showMap = !game.showMap;
+            if(e.code === 'KeyN') {
+                game.showMinimap = !game.showMinimap;
+                addFloatingText(game.player.x, game.player.y - 30, game.showMinimap ? "MINIMAP ON" : "MINIMAP OFF", C.white);
+            }
+            if(e.code === 'KeyH') { 
+                game.showChat = !game.showChat; 
+                document.getElementById('chat-container').style.display = game.showChat ? 'flex' : 'none';
+                addFloatingText(game.player.x, game.player.y - 30, game.showChat ? "CHAT VISIBLE" : "CHAT HIDDEN", C.white);
+            }
             if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyS','KeyA','KeyD','Space'].includes(e.code)) e.preventDefault();
         };
-        window.onkeyup = (e) => keys[e.code] = false;
+
+        window.onkeyup = (e) => { 
+            if (document.activeElement === document.getElementById('chat-input')) return;
+            keys[e.code] = false; 
+        };
 
         function handleT() {
             if(game.isMenuOpen || game.forgePhase || game.testPhase) return;
@@ -715,6 +884,10 @@
                 if (item.name.includes('Amulet')) { s = 25; p = 2; }
                 if (item.name.includes('Helmet') || item.name.includes('Crown')) { s = 40; p = 1; } 
                 if (item.name.includes('Armor') || item.name.includes('Chestplate')) { s = 80; }
+                if (item.name.includes('Sword')) { p = 25; s = 5; }
+                if (item.name.includes('Battleaxe')) { p = 40; s = -5; }
+                if (item.name.includes('Dagger')) { p = 15; s = 10; }
+                
                 totalPow += Math.floor(p * mult); totalStam += Math.floor(s * mult);
             }); 
             return { pow: totalPow, stam: totalStam };
@@ -725,6 +898,7 @@
             if (name.includes('Amulet')) return 'neck';
             if (name.includes('Helmet') || name.includes('Crown')) return 'head'; 
             if (name.includes('Armor') || name.includes('Chestplate')) return 'body';
+            if (name.includes('Sword') || name.includes('Battleaxe') || name.includes('Dagger')) return 'weapon';
             return null;
         }
 
@@ -765,7 +939,7 @@
                                     setTimeout(() => { 
                                         let attempts = 0; let nx=0, ny=0;
                                         while(attempts < 50) { 
-                                            nx = 50 + Math.random() * 500; ny = 50 + Math.random() * 250; 
+                                            nx = 50 + Math.random() * 700; ny = 50 + Math.random() * 250; 
                                             let tooClose = nList.some(other => other.active && dist(nx, ny, other.x, other.y) < 60); 
                                             if(ny < 330 && !tooClose) break; 
                                             attempts++; 
@@ -787,13 +961,35 @@
             } else if (game.map === 'OUTDOOR') {
                 if(dist(game.player.x, game.player.y, 100, 130) < 70) openForgeMenu();
                 if(dist(game.player.x, game.player.y, 90, 340) < 70) openMinerAssocMenu();
-                if(dist(game.player.x, game.player.y, 460, 80) < 70) openBuyMenu();
-                if(dist(game.player.x, game.player.y, 470, 310) < 70) openSellMenu();
-                if(dist(game.player.x, game.player.y, 300, 270) < 70) openWholesaleMenu();
+                if(dist(game.player.x, game.player.y, 660, 80) < 70) openBuyMenu();
+                if(dist(game.player.x, game.player.y, 670, 310) < 70) openSellMenu();
+                if(dist(game.player.x, game.player.y, 400, 270) < 70) openWholesaleMenu();
+            } else if (game.map === 'ESTATE') {
+                if(dist(game.player.x, game.player.y, 350, 220) < 70) openDecorMenu();
             }
         }
 
         function handleSpace() {
+            if(game.map === 'ARENA') {
+                if(game.player.attackTimer <= 0) {
+                    game.player.attackTimer = 20;
+                    game.player.attackAnim = 10;
+                    
+                    // PVP Collision Check
+                    if (otherPlayer && otherPlayer.map === 'ARENA') {
+                        if (dist(game.player.x, game.player.y, otherPlayer.x, otherPlayer.y) < 55) {
+                            let stats = getEquipmentStats();
+                            let dmg = game.power + stats.pow + Math.floor(game.miningLvl/2);
+                            if (peerConn && peerConn.open) {
+                                peerConn.send({ type: 'pvp_damage', amt: dmg });
+                            }
+                            createParticles(otherPlayer.x, otherPlayer.y, C.red, 15);
+                        }
+                    }
+                }
+                return;
+            }
+
             if(game.forgePhase === 'hammer') { 
                 let hit = (game.hammerCursor >= 90 && game.hammerCursor <= 125); 
                 game.score += hit ? 40 : 10; game.hammerHits++; 
@@ -835,18 +1031,26 @@
         }
 
         function renderBackpack() {
-            const slots = ['head', 'neck', 'body', 'hand'];
+            const slots = ['head', 'neck', 'body', 'hand', 'weapon'];
             slots.forEach(slot => {
                 const el = document.getElementById(`slot-${slot}`); const item = game.equipment[slot];
                 if (item) {
                     el.classList.add('filled');
-                    let iconHtml = ''; if(slot==='head') iconHtml = '🪖 HEAD'; if(slot==='neck') iconHtml = '📿 NECK'; if(slot==='body') iconHtml = '👕 BODY'; if(slot==='hand') iconHtml = '💍 HAND';
+                    let iconHtml = ''; if(slot==='head') iconHtml = '🪖 HEAD'; if(slot==='neck') iconHtml = '📿 NECK'; if(slot==='body') iconHtml = '👕 BODY'; if(slot==='hand') iconHtml = '💍 HAND'; if(slot==='weapon') iconHtml = '⚔️ WEAPON';
                     let m=1; if(item.quality==='Rare')m=1.5; if(item.quality==='Epic')m=2.0; if(item.quality==='Masterwork')m=3.0; if(item.quality==='Legendary')m=5.0;
-                    let p=0, s=0; if(slot==='hand'){s=15;p=1;} if(slot==='neck'){s=25;p=2;} if(slot==='head'){s=40;p=1;} if(slot==='body'){s=80;}
-                    el.innerHTML = `<div class="slot-label">${iconHtml}</div><div class="slot-name q-${item.quality.toLowerCase()}">${item.name}</div><div class="slot-stats">+${Math.floor(s*m)} STM, +${Math.floor(p*m)} POW</div>`;
+                    let p=0, s=0; 
+                    if (item.name.includes('Ring')) { s = 15; p = 1; } 
+                    if (item.name.includes('Amulet')) { s = 25; p = 2; }
+                    if (item.name.includes('Helmet') || item.name.includes('Crown')) { s = 40; p = 1; } 
+                    if (item.name.includes('Armor') || item.name.includes('Chestplate')) { s = 80; }
+                    if (item.name.includes('Sword')) { p = 25; s = 5; }
+                    if (item.name.includes('Battleaxe')) { p = 40; s = -5; }
+                    if (item.name.includes('Dagger')) { p = 15; s = 10; }
+
+                    el.innerHTML = `<div class="slot-label">${iconHtml}</div><div class="slot-name q-${item.quality.toLowerCase()}">${item.name}</div><div class="slot-stats">${s!==0?'+'+Math.floor(s*m)+' STM ':''}${p!==0?'+'+Math.floor(p*m)+' POW':''}</div>`;
                 } else {
                     el.classList.remove('filled');
-                    let iconHtml = ''; if(slot==='head') iconHtml = '🪖 HEAD'; if(slot==='neck') iconHtml = '📿 NECK'; if(slot==='body') iconHtml = '👕 BODY'; if(slot==='hand') iconHtml = '💍 HAND';
+                    let iconHtml = ''; if(slot==='head') iconHtml = '🪖 HEAD'; if(slot==='neck') iconHtml = '📿 NECK'; if(slot==='body') iconHtml = '👕 BODY'; if(slot==='hand') iconHtml = '💍 HAND'; if(slot==='weapon') iconHtml = '⚔️ WEAPON';
                     el.innerHTML = `<div class="slot-label">${iconHtml}</div><div class="slot-name" style="color:#666;">Empty</div>`;
                 }
             });
@@ -1074,8 +1278,10 @@
         }
 
         function drawPlayer(x, y, r, isOther=false) {
-            const legWobble = r.walking ? Math.sin(r.tick * 0.2) * 3 : 0; const isMining = r.player.mineAnim > 0; const armY = y + 12 + Math.abs(legWobble) * 0.5;
-            ctx.save(); if(isMining) ctx.translate(r.player.dir * 4, 2);
+            const legWobble = r.walking ? Math.sin(r.tick * 0.2) * 3 : 0; 
+            const isAction = r.player.mineAnim > 0 || r.player.attackAnim > 0; 
+            const armY = y + 12 + Math.abs(legWobble) * 0.5;
+            ctx.save(); if(isAction) ctx.translate(r.player.dir * 4, 2);
             let totalBag = isOther ? 0 : Object.values(game.inv).reduce((a,b)=>Number(a)+Number(b),0) + (game.finishedItems ? game.finishedItems.length : 0); 
             let bagHeight = 6 + Math.min(12, Math.floor(totalBag / 3) || 0); 
             if (r.player.dir > 0) { pRect(x - 3, y + 18 - bagHeight, 7, bagHeight, C.brown); pRect(x - 3, y + 18 - bagHeight, 7, 2, C.d_brown); } else { pRect(x + 16, y + 18 - bagHeight, 7, bagHeight, C.brown); pRect(x + 16, y + 18 - bagHeight, 7, 2, C.d_brown); }
@@ -1089,11 +1295,74 @@
             pRect(x + 2, y + 10, 16, 10, bodyCol); pRect(x + 4, y, 3, 3, C.red); 
             pRect(x + 4, y + 20 + legWobble, 5, 6, C.d_gray); pRect(x + 11, y + 20 - legWobble, 5, 6, C.d_gray);
 
-            let pCol = C.brown; if (game.pick === 'Adamant') pCol = C.adamant; else if (game.pick === 'Mithril') pCol = C.mithril; else if (game.pick === 'Gold') pCol = C.yellow; else if (game.pick === 'Steel') pCol = C.indigo; else if (game.pick === 'Iron') pCol = C.l_gray; else if (game.pick === 'Bronze') pCol = C.bronze;
-            let swingAngle = isMining ? (10 - r.player.mineAnim) * 0.2 : 0;
-            if (r.player.dir > 0) { ctx.translate(x + 16, armY); ctx.rotate(swingAngle); pRect(0, 0, 4, 8, bodyCol); pRect(2, 4, 12, 2, C.brown); pRect(10, -2, 2, 10, pCol); pRect(8, 2, 6, 2, pCol); } 
-            else { ctx.translate(x + 4, armY); ctx.rotate(-swingAngle); pRect(-4, 0, 4, 8, bodyCol); pRect(-14, 4, 12, 2, C.brown); pRect(-12, -2, 2, 10, pCol); pRect(-14, 2, 6, 2, pCol); }
+            // Dynamically Draw Equipped Weapon or Pickaxe
+            let pCol = C.brown; 
+            let isSword = false; let isAxe = false;
+            let wepName = isOther ? r.player.weapon : (game.equipment.weapon ? game.equipment.weapon.name : null);
+            let pickName = isOther ? r.player.pick : game.pick;
+
+            if (wepName) {
+                if (wepName.includes('Adamant')) pCol = C.adamant;
+                else if (wepName.includes('Mithril')) pCol = C.mithril;
+                else if (wepName.includes('Gold')) pCol = C.yellow;
+                else if (wepName.includes('Steel')) pCol = C.indigo;
+                else if (wepName.includes('Iron')) pCol = C.l_gray;
+                else if (wepName.includes('Bronze')) pCol = C.bronze;
+                else if (wepName.includes('Silver')) pCol = C.silver;
+                else if (wepName.includes('Tin')) pCol = C.tin;
+
+                if (wepName.includes('Sword') || wepName.includes('Dagger')) isSword = true;
+                if (wepName.includes('Battleaxe')) isAxe = true;
+            } else if (pickName) {
+                if (pickName === 'Adamant') pCol = C.adamant; 
+                else if (pickName === 'Mithril') pCol = C.mithril; 
+                else if (pickName === 'Gold') pCol = C.yellow; 
+                else if (pickName === 'Steel') pCol = C.indigo; 
+                else if (pickName === 'Iron') pCol = C.l_gray; 
+                else if (pickName === 'Bronze') pCol = C.bronze;
+            }
+
+            let swingAngle = isAction ? (10 - (r.player.mineAnim || r.player.attackAnim)) * 0.3 : 0;
+            if (r.player.dir > 0) { 
+                ctx.translate(x + 16, armY); ctx.rotate(swingAngle); 
+                pRect(0, 0, 4, 8, bodyCol); 
+                pRect(2, 4, 12, 2, C.brown); 
+                if (isSword) {
+                    pRect(14, -6, 2, 14, pCol); // Sword blade
+                    pRect(12, 2, 2, 6, C.d_gray); // Crossguard
+                } else if (isAxe) {
+                    pRect(10, -2, 6, 10, pCol); // Axe head
+                    pRect(16, 0, 2, 6, pCol);
+                } else {
+                    pRect(10, -2, 2, 10, pCol); // Pickaxe
+                    pRect(8, 2, 6, 2, pCol);
+                }
+            } 
+            else { 
+                ctx.translate(x + 4, armY); ctx.rotate(-swingAngle); 
+                pRect(-4, 0, 4, 8, bodyCol); 
+                pRect(-14, 4, 12, 2, C.brown); 
+                if (isSword) {
+                    pRect(-16, -6, 2, 14, pCol); // Sword blade
+                    pRect(-14, 2, 2, 6, C.d_gray); // Crossguard
+                } else if (isAxe) {
+                    pRect(-16, -2, 6, 10, pCol); // Axe head
+                    pRect(-18, 0, 2, 6, pCol);
+                } else {
+                    pRect(-12, -2, 2, 10, pCol); // Pickaxe
+                    pRect(-14, 2, 6, 2, pCol);
+                }
+            }
             ctx.restore();
+
+            // HP BAR for ARENA
+            if (game.map === 'ARENA') {
+                let currentHp = r.player.hp || 100;
+                let maxHp = isOther ? 100 : game.maxHp; // Rough estimation for peers
+                let hpPct = Math.max(0, currentHp / maxHp);
+                pRect(x - 5, y - 10, 30, 4, C.black);
+                pRect(x - 5, y - 10, 30 * hpPct, 4, C.red);
+            }
         }
 
         function drawNode(n) { if(!n.active) return; ctx.save(); if(n.shake > 0) { ctx.translate((Math.random()-0.5)*n.shake, 0); n.shake *= 0.8; } const x = n.x, y = n.y; pRect(x+4, y+26, 24, 6, 'rgba(0,0,0,0.3)'); pRect(x+4, y+4, 24, 24, C.d_gray); pRect(x+0, y+8, 4, 16, C.d_gray); pRect(x+28, y+10, 4, 12, C.d_gray); pRect(x+8, y+0, 16, 4, C.d_gray); pRect(x+20, y+8, 8, 20, C.black + '44'); pRect(x+8, y+20, 20, 8, C.black + '44'); pRect(x+4, y+4, 12, 2, C.l_gray); pRect(x+4, y+6, 2, 10, C.l_gray); let oC = C.black, oH = C.d_gray; if(n.type==='iron') { oC = C.orange; oH = C.yellow; } else if(n.type==='gold') { oC = C.yellow; oH = C.white; } else if(n.type==='copper') { oC = C.copper; oH = C.peach; } else if(n.type==='mithril') { oC = C.mithril; oH = C.white; } else if(n.type==='tin') { oC = C.tin; oH = C.white; } else if(n.type==='silver') { oC = C.silver; oH = C.white; } else if(n.type==='adamant') { oC = C.adamant; oH = C.white; } pRect(x+8, y+8, 6, 6, oC); pRect(x+9, y+9, 2, 2, oH); if(game.tick % 60 < 10 && (n.type==='gold' || n.type==='mithril' || n.type==='adamant' || n.type==='silver')) pRect(x+10, y+10, 2, 2, C.white); pRect(x+18, y+16, 5, 5, oC); pRect(x+19, y+17, 2, 2, oH); const hpP = n.hp / n.mhp; pRect(x, y-10, 32, 4, C.black); pRect(x, y-10, hpP*32, 4, hpP > 0.5 ? C.green : C.red); ctx.restore(); }
@@ -1113,7 +1382,7 @@
 
         // MAP OVERLAY CALLS
         function drawMinimapHUD() {
-            let mx = 440, my = 15;
+            let mx = 640, my = 15;
             let mw = 145, mh = 95;
 
             ctx.fillStyle = 'rgba(20, 20, 24, 0.85)';
@@ -1122,18 +1391,21 @@
             ctx.lineWidth = 2;
             ctx.strokeRect(mx, my, mw, mh);
 
-            let ratioX = mw / 600;
+            let ratioX = mw / 800;
             let ratioY = mh / 400;
 
             const sharpRect = (x, y, w, h, c) => { ctx.fillStyle=c; ctx.fillRect(x, y, w, h); };
 
             if (game.map === 'OUTDOOR') {
                 sharpRect(mx + 50 * ratioX, my + 30 * ratioY, 100 * ratioX, 100 * ratioY, C.d_gray); // Forge
-                sharpRect(mx + 420 * ratioX, my + 30 * ratioY, 80 * ratioX, 50 * ratioY, 'rgba(0,0,0,0.2)'); // Tools
-                sharpRect(mx + 420 * ratioX, my + 240 * ratioY, 100 * ratioX, 100 * ratioY, C.mithril); // Stall
+                sharpRect(mx + 620 * ratioX, my + 30 * ratioY, 80 * ratioX, 50 * ratioY, 'rgba(0,0,0,0.2)'); // Tools
+                sharpRect(mx + 620 * ratioX, my + 240 * ratioY, 100 * ratioX, 100 * ratioY, C.mithril); // Stall
                 sharpRect(mx + 50 * ratioX, my + 260 * ratioY, 80 * ratioX, 80 * ratioY, C.l_gray); // Assoc
-                sharpRect(mx + 260 * ratioX, my + 240 * ratioY, 80 * ratioX, 60 * ratioY, '#111'); // Smuggler
-                sharpRect(mx + 250 * ratioX, my + 0 * ratioY, 100 * ratioX, 20 * ratioY, C.d_gray); // Cave Entry
+                sharpRect(mx + 360 * ratioX, my + 240 * ratioY, 80 * ratioX, 60 * ratioY, '#111'); // Smuggler
+                sharpRect(mx + 350 * ratioX, my + 0 * ratioY, 100 * ratioX, 20 * ratioY, C.d_gray); // Cave Entry
+                
+                sharpRect(mx + 50 * ratioX, my + 0 * ratioY, 80 * ratioX, 20 * ratioY, C.dirt); // Estate
+                sharpRect(mx + 700 * ratioX, my + 0 * ratioY, 80 * ratioX, 20 * ratioY, C.red); // Arena
             } else if (game.map === 'CAVE') {
                 let nList = game.nodes[game.currentArea];
                 if (nList) {
@@ -1141,6 +1413,13 @@
                         if (n.active) sharpRect(mx + n.x * ratioX, my + n.y * ratioY, 3, 3, C.sand);
                     });
                 }
+            } else if (game.map === 'ESTATE') {
+                sharpRect(mx + 350 * ratioX, my + 200 * ratioY, 60 * ratioX, 40 * ratioY, C.brown);
+                game.decorations.forEach(d => {
+                    sharpRect(mx + d.x * ratioX, my + d.y * ratioY, 3, 3, C.yellow);
+                });
+            } else if (game.map === 'ARENA') {
+                sharpRect(mx + 250 * ratioX, my + 50 * ratioY, 300 * ratioX, 300 * ratioY, 'rgba(255,0,0,0.3)');
             }
 
             let sameMap = false;
@@ -1165,10 +1444,10 @@
             if (!game.showMap) return;
 
             ctx.fillStyle = 'rgba(10, 10, 12, 0.88)';
-            ctx.fillRect(0, 0, 600, 400);
+            ctx.fillRect(0, 0, 800, 400);
 
             let bx = 20, by = 20;
-            let bw = 560, bh = 360;
+            let bw = 760, bh = 360;
             
             const sharpRect = (x, y, w, h, c) => { ctx.fillStyle=c; ctx.fillRect(x, y, w, h); };
 
@@ -1192,75 +1471,88 @@
             ctx.fillStyle = '#6fa8dc'; ctx.font = 'bold 10px sans-serif';
             ctx.fillText("[TAP 'M' TO CLOSE]", bx + bw - 140, by + 16);
 
-            let col1 = bx + 25;
+            let col1 = bx + 40;
             ctx.fillStyle = '#4fa3ff'; ctx.font = 'bold 10px sans-serif';
             ctx.fillText("SERVER ENVIRONMENT CLUSTER NODES:", col1, by + 50);
 
             let zones = [
                 { map: "OUTDOOR", area: 1, label: "TOWN SQUARE PLAZA HUB [MAIN]", y: by + 80 },
-                { map: "CAVE", area: 1, label: "SURFACE TUNNELS EXTRACTION (L1)", y: by + 140 },
-                { map: "CAVE", area: 2, label: "SILVER CAVERNS DEPOSIT (L2)", y: by + 200 },
-                { map: "CAVE", area: 3, label: "THE DEEP CORE (L3)", y: by + 260 }
+                { map: "ESTATE", area: 1, label: "PLAYER ESTATE [BUILD]", y: by + 120 },
+                { map: "ARENA", area: 1, label: "GLADIATOR ARENA [PVP]", y: by + 160 },
+                { map: "CAVE", area: 1, label: "SURFACE TUNNELS (L1)", y: by + 200 },
+                { map: "CAVE", area: 2, label: "SILVER CAVERNS (L2)", y: by + 240 },
+                { map: "CAVE", area: 3, label: "THE DEEP CORE (L3)", y: by + 280 }
             ];
 
             ctx.strokeStyle = '#2d557e'; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.moveTo(col1 + 60, by + 95); ctx.lineTo(col1 + 60, by + 140); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(col1 + 60, by + 140); ctx.lineTo(col1 + 60, by + 200); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(col1 + 60, by + 200); ctx.lineTo(col1 + 60, by + 260); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(col1 + 60, by + 95); ctx.lineTo(col1 + 60, by + 280); ctx.stroke();
 
             zones.forEach(z => {
-                let isCurrent = (game.map === z.map && (game.map === 'OUTDOOR' || game.currentArea === z.area));
+                let isCurrent = (game.map === z.map && (game.map === 'OUTDOOR' || game.map === 'ESTATE' || game.map === 'ARENA' || game.currentArea === z.area));
                 sharpRect(col1, z.y, 240, 28, isCurrent ? '#1c3654' : '#111c2b');
                 ctx.strokeStyle = isCurrent ? '#00bfff' : '#233d5e'; ctx.lineWidth = 1; ctx.strokeRect(col1, z.y, 240, 28);
 
                 let popCount = 0; 
                 if (isCurrent) popCount++;
                 if (otherPlayer) {
-                    if (otherPlayer.map === z.map && (z.map === 'OUTDOOR' || otherPlayer.currentArea === z.area)) {
+                    if (otherPlayer.map === z.map && (z.map === 'OUTDOOR' || z.map === 'ESTATE' || z.map === 'ARENA' || otherPlayer.currentArea === z.area)) {
                         popCount++;
                     }
                 }
 
-                ctx.fillStyle = isCurrent ? '#00bfff' : C.white; ctx.font = 'bold 9px sans-serif';
+                ctx.fillStyle = isCurrent ? '#00bfff' : C.white; ctx.font = '9px sans-serif';
                 ctx.fillText(`${isCurrent ? "► " : "  "}${z.label}`, col1 + 6, z.y + 17);
                 
                 ctx.fillStyle = popCount > 0 ? C.gold : '#555';
                 ctx.fillText(`[👤 POP: ${popCount}]`, col1 + 175, z.y + 17);
             });
 
-            let col2 = bx + 290;
-            let mw = 250; 
+            let col2 = bx + 360;
+            let mw = 320; 
             let mh = 250;
             sharpRect(col2, by + 50, mw, mh, '#090f17');
             ctx.strokeStyle = '#1a2e47'; ctx.strokeRect(col2, by + 50, mw, mh);
 
             ctx.fillStyle = '#4fa3ff'; ctx.font = 'bold 10px sans-serif';
-            ctx.fillText(`RADAR SCAN DETAILS: ${game.map === 'OUTDOOR' ? 'TOWN' : 'CAVE ' + game.currentArea}`, col2, by + 315);
+            ctx.fillText(`RADAR SCAN DETAILS: ${game.map === 'OUTDOOR' ? 'TOWN' : game.map === 'ESTATE' ? 'ESTATE' : game.map === 'ARENA' ? 'ARENA' : 'CAVE ' + game.currentArea}`, col2, by + 315);
 
-            let mxX = mw / 600; let mxY = mh / 400;
+            let mxX = mw / 800; let mxY = mh / 400;
             let mTop = by + 50;
 
             if(game.map === "OUTDOOR") {
                 sharpRect(col2 + 50*mxX, mTop + 30*mxY, 100*mxX, 100*mxY, 'rgba(142,142,147,0.3)'); 
-                sharpRect(col2 + 420*mxX, mTop + 30*mxY, 80*mxX, 50*mxY, 'rgba(0,122,255,0.2)');   
-                sharpRect(col2 + 420*mxX, mTop + 240*mxY, 100*mxX, 100*mxY, 'rgba(52,199,89,0.2)'); 
+                sharpRect(col2 + 620*mxX, mTop + 30*mxY, 80*mxX, 50*mxY, 'rgba(0,122,255,0.2)');   
+                sharpRect(col2 + 620*mxX, mTop + 240*mxY, 100*mxX, 100*mxY, 'rgba(52,199,89,0.2)'); 
                 sharpRect(col2 + 50*mxX, mTop + 260*mxY, 80*mxX, 80*mxY, 'rgba(175,82,222,0.2)');   
-                sharpRect(col2 + 260*mxX, mTop + 240*mxY, 80*mxX, 60*mxY, 'rgba(255,0,0,0.2)');     
-                sharpRect(col2 + 250*mxX, mTop + 0*mxY, 100*mxX, 20*mxY, 'rgba(255,255,255,0.2)');  
+                sharpRect(col2 + 360*mxX, mTop + 240*mxY, 80*mxX, 60*mxY, 'rgba(255,0,0,0.2)');     
+                sharpRect(col2 + 350*mxX, mTop + 0*mxY, 100*mxX, 20*mxY, 'rgba(255,255,255,0.2)');
+                sharpRect(col2 + 50*mxX, mTop + 0*mxY, 80*mxX, 20*mxY, 'rgba(0,255,100,0.2)');
+                sharpRect(col2 + 700*mxX, mTop + 0*mxY, 80*mxX, 20*mxY, 'rgba(255,0,0,0.3)');
 
                 ctx.fillStyle = '#8a9ab0'; ctx.font = 'bold 8px sans-serif';
                 ctx.fillText("FORGE", col2 + 65*mxX, mTop + 80*mxY);
-                ctx.fillText("TOOLS", col2 + 435*mxX, mTop + 60*mxY);
-                ctx.fillText("STALL", col2 + 450*mxX, mTop + 295*mxY);
+                ctx.fillText("TOOLS", col2 + 635*mxX, mTop + 60*mxY);
+                ctx.fillText("STALL", col2 + 650*mxX, mTop + 295*mxY);
                 ctx.fillText("ASSOC", col2 + 65*mxX, mTop + 300*mxY);
-                ctx.fillText("SMUGGLER", col2 + 265*mxX, mTop + 270*mxY);
-                ctx.fillText("CAVE", col2 + 280*mxX, mTop + 15*mxY);
-            } 
-            else {
+                ctx.fillText("SMUGGLER", col2 + 365*mxX, mTop + 270*mxY);
+                ctx.fillText("CAVE", col2 + 380*mxX, mTop + 15*mxY);
+                ctx.fillText("ESTATE", col2 + 60*mxX, mTop + 15*mxY);
+                ctx.fillText("ARENA", col2 + 710*mxX, mTop + 15*mxY);
+            } else if (game.map === "ESTATE") {
+                sharpRect(col2 + 350*mxX, mTop + 200*mxY, 60*mxX, 40*mxY, 'rgba(175,82,222,0.3)');
+                ctx.fillStyle = '#8a9ab0'; ctx.font = 'bold 8px sans-serif';
+                ctx.fillText("WORKBENCH", col2 + 355*mxX, mTop + 195*mxY);
+                game.decorations.forEach(d => {
+                    sharpRect(col2 + d.x*mxX, mTop + d.y*mxY, 3, 3, C.yellow);
+                });
+            } else if (game.map === "ARENA") {
+                ctx.strokeStyle = 'rgba(255,0,0,0.5)'; ctx.beginPath(); ctx.arc(col2 + 400*mxX, mTop + 200*mxY, 150*mxX, 0, Math.PI*2); ctx.stroke();
+                ctx.fillStyle = '#8a9ab0'; ctx.fillText("PVP COMBAT ZONE", col2 + 320*mxX, mTop + 50*mxY);
+            } else {
                 let nList = game.nodes[game.currentArea];
                 if (nList) {
                     nList.forEach(b => {
-                        if (b.active) sharpRect(col2 + b.x*mxX - 2, mTop + b.y*mxY - 2, 4, 4, C.sand);
+                        if (b.active) sharpRect(col2 + b.x*mxX - 2, mTop + b.y*mxY - 2, 5, 5, C.sand);
                     });
                     ctx.fillStyle = C.sand; ctx.font = 'bold 8px sans-serif';
                     let activeCount = nList.filter(n => n.active).length;
@@ -1293,13 +1585,22 @@
         }
 
         function update() {
-            game.tick++; if(game.player.mineAnim > 0) game.player.mineAnim--;
+            game.tick++; 
+            if(game.player.mineAnim > 0) game.player.mineAnim--;
+            if(game.player.attackAnim > 0) game.player.attackAnim--;
+            if(game.player.attackTimer > 0) game.player.attackTimer--;
+            
             if (game.tick % 1800 === 0) saveGame();
 
             let stats = getEquipmentStats();
             game.maxStamina = 100 + ((game.miningLvl - 1) * 10) + stats.stam;
+            game.maxHp = 100 + ((game.miningLvl - 1) * 5) + stats.pow * 2;
+
             if(game.stamina > game.maxStamina) game.stamina = game.maxStamina;
+            if(game.player.hp > game.maxHp) game.player.hp = game.maxHp;
+
             if(game.tick % 10 === 0 && game.stamina < game.maxStamina) { game.stamina++; }
+            if(game.tick % 30 === 0 && game.player.hp < game.maxHp && game.map !== 'ARENA') { game.player.hp++; }
 
             tickMarket();
             
@@ -1308,7 +1609,9 @@
                     type: 'sync',
                     player: {
                         x: game.player.x, y: game.player.y, dir: game.player.dir,
-                        mineAnim: game.player.mineAnim, map: game.map, walking: game.walking, currentArea: game.currentArea
+                        mineAnim: game.player.mineAnim, attackAnim: game.player.attackAnim, hp: game.player.hp, map: game.map, walking: game.walking, currentArea: game.currentArea,
+                        weapon: game.equipment.weapon ? game.equipment.weapon.name : null,
+                        pick: game.pick
                     }
                 });
             }
@@ -1319,12 +1622,12 @@
             } else if(game.forgePhase === 'hammer') { 
                 game.hammerCursor += game.hammerDir; if(game.hammerCursor > 212 || game.hammerCursor < 0) game.hammerDir *= -1; document.getElementById('hammer-cursor').style.left = game.hammerCursor + 'px'; 
             } else if(game.forgePhase === 'quench') { 
-                if(keys['Space']) { game.quenchProgress += 1.5; game.score += 0.2; if(game.tick%3===0) createParticles(300+(Math.random()-0.5)*40, 200, C.white, 2); document.getElementById('quench-fill').style.width = game.quenchProgress + '%'; if(game.quenchProgress >= 100) finishForge(); } else game.quenchProgress = Math.max(0, game.quenchProgress - 0.7); 
+                if(keys['Space']) { game.quenchProgress += 1.5; game.score += 0.2; if(game.tick%3===0) createParticles(400+(Math.random()-0.5)*40, 200, C.white, 2); document.getElementById('quench-fill').style.width = game.quenchProgress + '%'; if(game.quenchProgress >= 100) finishForge(); } else game.quenchProgress = Math.max(0, game.quenchProgress - 0.7); 
             } else if(game.testPhase) { 
                 game.hammerCursor += game.hammerDir; if(game.hammerCursor > 212 || game.hammerCursor < 0) game.hammerDir *= -1; document.getElementById('test-cursor').style.left = game.hammerCursor + 'px'; 
             }
 
-            if(!game.forgePhase && !game.testPhase && !game.isMenuOpen) {
+            if(!game.forgePhase && !game.testPhase && !game.isMenuOpen && document.activeElement !== document.getElementById('chat-input')) {
                 let mv = false; 
                 if(keys['KeyW']) { game.player.y -= game.player.speed; mv=true; } 
                 if(keys['KeyS']) { game.player.y += game.player.speed; mv=true; } 
@@ -1332,10 +1635,17 @@
                 if(keys['KeyD']) { game.player.x += game.player.speed; game.player.dir = 1; mv=true; } 
                 game.walking = mv;
                 
-                if(game.map === 'CAVE' && game.player.y > 370) { game.map = 'OUTDOOR'; game.player.y = 40; } 
-                else if(game.map === 'OUTDOOR' && game.player.y < 20 && game.player.x > 250 && game.player.x < 330) { openMineSelector(); }
+                // MAP TRANSITIONS
+                if(game.map === 'CAVE' && game.player.y > 370) { game.map = 'OUTDOOR'; game.player.y = 40; game.player.x = 390; } 
+                else if(game.map === 'OUTDOOR' && game.player.y < 20 && game.player.x > 350 && game.player.x < 430) { openMineSelector(); }
+                // ESTATE ENTRANCE / EXIT
+                else if(game.map === 'OUTDOOR' && game.player.y < 20 && game.player.x > 20 && game.player.x < 100) { game.map = 'ESTATE'; game.player.y = 350; }
+                else if(game.map === 'ESTATE' && game.player.y > 370) { game.map = 'OUTDOOR'; game.player.y = 30; game.player.x = 60; }
+                // ARENA ENTRANCE / EXIT
+                else if(game.map === 'OUTDOOR' && game.player.y < 20 && game.player.x > 680 && game.player.x < 780) { game.map = 'ARENA'; game.player.y = 350; game.player.x = 400; game.player.hp = game.maxHp; }
+                else if(game.map === 'ARENA' && game.player.y > 370) { game.map = 'OUTDOOR'; game.player.y = 30; game.player.x = 730; game.player.hp = game.maxHp; }
                 
-                if(game.player.x < 0) game.player.x = 580; if(game.player.x > 600) game.player.x = 0; 
+                if(game.player.x < 0) game.player.x = 780; if(game.player.x > 800) game.player.x = 0; 
                 if(game.player.y < 0) game.player.y = 0; if(game.player.y > 380) game.player.y = 380;
             }
 
@@ -1343,6 +1653,7 @@
             let bagTotal = Object.values(game.inv).reduce((a,b)=>Number(a)+Number(b),0) + (game.finishedItems ? game.finishedItems.length : 0);
             
             document.getElementById('stamina-v').innerText = `${Math.floor(game.stamina)}/${game.maxStamina}`;
+            document.getElementById('hp-v').innerText = `${Math.floor(game.player.hp)}/${game.maxHp}`;
             let stamCol = C.peach; if (game.stamina < 20) stamCol = C.red; else if (game.stamina >= game.maxStamina) stamCol = C.green;
             
             document.getElementById('stamina-v').style.color = stamCol;
@@ -1359,22 +1670,57 @@
         }
 
         function draw() {
-            ctx.clearRect(0,0,600,400);
+            ctx.clearRect(0,0,800,400);
             if (game.map === 'CAVE') { 
-                ctx.fillStyle = C.d_blue; ctx.fillRect(0,0,600,400); pRect(270, 360, 60, 40, C.black); 
+                ctx.fillStyle = C.d_blue; ctx.fillRect(0,0,800,400); pRect(370, 360, 60, 40, C.black); 
                 game.nodes[game.currentArea].forEach(drawNode); 
                 ctx.fillStyle=C.white; ctx.font="bold 10px sans-serif"; ctx.fillText(`AREA ${game.currentArea}`, 10, 20); 
             } 
+            else if (game.map === 'ESTATE') {
+                ctx.fillStyle = '#3a5941'; ctx.fillRect(0,0,800,400); // Dark green grass background
+                pRect(20, 360, 80, 40, C.dirt); // Exit path to town
+                ctx.fillStyle=C.white; ctx.font="bold 10px sans-serif"; ctx.fillText("TOWN (v)", 60, 395);
+
+                // Decor workbench
+                pRect(350, 200, 60, 40, C.brown);
+                pRect(360, 210, 40, 20, C.d_gray);
+                ctx.fillStyle=C.white; ctx.fillText("WORKBENCH (E)", 380, 195);
+
+                // Draw placed decors
+                game.decorations.forEach(d => {
+                    if (d.type === 'torch') { pRect(d.x, d.y, 4, 15, C.brown); pRect(d.x-2, d.y-4, 8, 8, C.orange); }
+                    else if (d.type === 'statue') { pRect(d.x, d.y, 20, 40, C.l_gray); pRect(d.x+4, d.y+10, 12, 12, C.d_gray); }
+                    else if (d.type === 'banner') { pRect(d.x, d.y, 4, 40, C.brown); pRect(d.x+4, d.y, 20, 30, C.red); }
+                    else if (d.type === 'plant') { pRect(d.x, d.y, 16, 16, C.brown); pRect(d.x-4, d.y-16, 24, 20, '#00a368'); }
+                });
+            }
+            else if (game.map === 'ARENA') {
+                ctx.fillStyle = '#4a0e0e'; ctx.fillRect(0,0,800,400); // Dark red arena floor
+                pRect(350, 360, 100, 40, C.dirt); // Exit path to town
+                ctx.fillStyle=C.white; ctx.font="bold 10px sans-serif"; ctx.fillText("TOWN (v)", 400, 395);
+                
+                // Arena Ring
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(400, 200, 150, 0, Math.PI*2); ctx.stroke();
+                ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
+                ctx.fillStyle = C.white; ctx.fillText("PVP COMBAT ZONE", 400, 40);
+            }
             else if (game.map === 'OUTDOOR') {
-                ctx.fillStyle = C.d_green; ctx.fillRect(0,0,600,400); pRect(270, 40, 60, 360, C.dirt); pRect(250, 0, 100, 20, C.d_gray); pRect(270, 0, 60, 40, C.black); ctx.fillStyle=C.white; ctx.font="bold 10px sans-serif"; ctx.fillText("CAVE (E)", 275, 15);
-                drawTree(20, 150); drawTree(200, 150); drawTree(370, 150); drawTree(550, 150);
+                ctx.fillStyle = C.d_green; ctx.fillRect(0,0,800,400); 
+                pRect(370, 40, 60, 360, C.dirt); pRect(350, 0, 100, 20, C.d_gray); pRect(370, 0, 60, 40, C.black); ctx.fillStyle=C.white; ctx.font="bold 10px sans-serif"; ctx.fillText("CAVE (E)", 375, 15);
+                
+                // Estate Entrance Path
+                pRect(50, 0, 80, 20, C.dirt); ctx.fillStyle=C.white; ctx.fillText("ESTATE (^)", 90, 15);
+                // Arena Entrance Path
+                pRect(700, 0, 80, 20, C.dirt); ctx.fillStyle=C.white; ctx.fillText("ARENA (^)", 740, 15);
+
+                drawTree(20, 150); drawTree(200, 150); drawTree(370, 150); drawTree(550, 150); drawTree(730, 150);
                 pRect(50, 30, 100, 100, C.d_gray); pRect(90, 70, 30, 40, C.brown); pRect(85, 55, 40, 15, C.l_gray); pRect(80, 58, 5, 12, C.l_gray); pRect(75, 61, 5, 9, C.l_gray); pRect(95, 70, 20, 8, C.mithril); pRect(60, 90, 20, 20, C.brown); pRect(62, 92, 16, 16, C.blue); pRect(60, 90, 20, 3, '#666'); pRect(60, 100, 20, 3, '#666'); ctx.fillStyle=C.white; ctx.fillText("FORGE (E)", 75, 25);
                 pRect(50, 260, 80, 80, C.l_gray); pRect(45, 250, 90, 20, C.blue); pRect(80, 300, 20, 40, C.brown); pRect(82, 320, 4, 4, C.yellow); pRect(60, 280, 15, 15, C.black); pRect(62, 282, 11, 11, C.white); pRect(105, 280, 15, 15, C.black); pRect(107, 282, 11, 11, C.white); ctx.fillStyle=C.white; ctx.fillText("ASSOC (E)", 65, 245);
-                pRect(420, 30, 80, 50, 'rgba(0,0,0,0.2)'); pRect(415, 40, 90, 15, C.blue); pRect(415, 55, 90, 5, C.d_blue); pRect(425, 55, 5, 40, C.brown); pRect(490, 55, 5, 40, C.brown); pRect(420, 70, 80, 15, C.d_brown); pRect(455, 73, 16, 4, C.l_gray); pRect(461, 65, 4, 15, C.brown); ctx.fillStyle=C.white; ctx.fillText("TOOLS (E)", 435, 35);
-                pRect(420, 240, 100, 100, C.mithril); pRect(425, 245, 90, 90, C.d_purple); pRect(430, 250, 80, 80, C.mithril); pRect(430, 285, 80, 10, C.brown); pRect(435, 295, 5, 20, C.d_brown); pRect(500, 295, 5, 20, C.d_brown); pRect(440, 275, 10, 10, C.blue); pRect(444, 271, 2, 4, C.l_gray); pRect(480, 278, 6, 7, C.brown); pRect(490, 276, 8, 9, C.yellow); pRect(460, 270, 20, 20, C.d_green); pRect(462, 255, 16, 16, C.peach); pRect(462, 255, 16, 4, C.d_gray); pRect(460, 257, 2, 8, C.d_gray); pRect(478, 257, 2, 8, C.d_gray); pRect(466, 267, 8, 4, C.l_gray); pRect(458, 251, 24, 6, C.red); pRect(464, 245, 12, 6, C.red); ctx.fillStyle=C.black; ctx.fillText("STALL (E)", 445, 305);
+                pRect(620, 30, 80, 50, 'rgba(0,0,0,0.2)'); pRect(615, 40, 90, 15, C.blue); pRect(615, 55, 90, 5, C.d_blue); pRect(625, 55, 5, 40, C.brown); pRect(690, 55, 5, 40, C.brown); pRect(620, 70, 80, 15, C.d_brown); pRect(655, 73, 16, 4, C.l_gray); pRect(661, 65, 4, 15, C.brown); ctx.fillStyle=C.white; ctx.fillText("TOOLS (E)", 635, 35);
+                pRect(620, 240, 100, 100, C.mithril); pRect(625, 245, 90, 90, C.d_purple); pRect(630, 250, 80, 80, C.mithril); pRect(630, 285, 80, 10, C.brown); pRect(635, 295, 5, 20, C.d_brown); pRect(700, 295, 5, 20, C.d_brown); pRect(640, 275, 10, 10, C.blue); pRect(644, 271, 2, 4, C.l_gray); pRect(680, 278, 6, 7, C.brown); pRect(690, 276, 8, 9, C.yellow); pRect(660, 270, 20, 20, C.d_green); pRect(662, 255, 16, 16, C.peach); pRect(662, 255, 16, 4, C.d_gray); pRect(660, 257, 2, 8, C.d_gray); pRect(678, 257, 2, 8, C.d_gray); pRect(666, 267, 8, 4, C.l_gray); pRect(658, 251, 24, 6, C.red); pRect(664, 245, 12, 6, C.red); ctx.fillStyle=C.black; ctx.fillText("STALL (E)", 645, 305);
                 
                 // --- SMUGGLER'S DEN ---
-                pRect(260, 240, 80, 60, '#111'); pRect(265, 245, 70, 20, '#222'); pRect(290, 265, 20, 20, C.d_purple); pRect(292, 270, 16, 4, C.black); pRect(296, 275, 4, 4, C.l_gray); ctx.fillStyle = C.l_gray; ctx.fillText("SMUGGLER (E)", 265, 315);
+                pRect(360, 240, 80, 60, '#111'); pRect(365, 245, 70, 20, '#222'); pRect(390, 265, 20, 20, C.d_purple); pRect(392, 270, 16, 4, C.black); pRect(396, 275, 4, 4, C.l_gray); ctx.fillStyle = C.l_gray; ctx.fillText("SMUGGLER (E)", 365, 315);
             }
             
             drawParticles(); 
@@ -1393,10 +1739,10 @@
             }
             
             drawFloatingTexts(); 
-            const g = ctx.createRadialGradient(300,200,100,300,200,350); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.5)'); ctx.fillStyle=g; ctx.fillRect(0,0,600,400);
+            const g = ctx.createRadialGradient(400,200,150,400,200,450); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.5)'); ctx.fillStyle=g; ctx.fillRect(0,0,800,400);
 
             // MAP OVERLAY CALLS
-            drawMinimapHUD();
+            if (game.showMinimap) drawMinimapHUD();
             drawWorldMapOverlay();
 
             update(); requestAnimationFrame(draw);
