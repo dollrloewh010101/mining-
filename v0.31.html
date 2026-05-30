@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Chronicles of Solaria</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 30px;
+        }
+        #game-container {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            background-color: #202020; 
+            border: 12px solid #333;
+            border-radius: 10px;
+            box-shadow: 0px 0px 25px rgba(0,0,0,0.7);
+            overflow: hidden; 
+        }
+        canvas { image-rendering: pixelated; }
+        
+        /* BATTLE UI */
+        #battle-screen {
+            display: none;
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: #e0f8d0; 
+            color: #081820;
+            box-sizing: border-box;
+            padding: 20px;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 10;
+        }
+        .retro-button {
+            background-color: #58c07c;
+            color: white;
+            border: 2px solid #081820;
+            padding: 10px;
+            font-family: inherit;
+            cursor: pointer;
+            margin: 5px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .retro-button:hover { background-color: #388850; }
+        #message-box {
+            background: white;
+            border: 3px solid #081820;
+            padding: 10px;
+            min-height: 45px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            border-bottom: 3px solid #081820;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        
+        /* OVERWORLD UI */
+        #map-name-display {
+            position: absolute;
+            top: 10px; left: 10px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #58c07c;
+            padding: 6px 12px;
+            font-weight: bold;
+            display: none;
+            border: 2px solid #58c07c;
+            z-index: 5;
+        }
+        
+        /* PARTY UI */
+        #party-container {
+            margin-top: 20px;
+            width: 400px;
+            background: #333;
+            padding: 10px;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .party-member {
+            display: inline-block;
+            background: #202020;
+            border: 2px solid #58c07c;
+            padding: 5px 10px;
+            margin: 5px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Chronicles of Solaria</h1>
+    <p>Explore the world, walk in tall grass, and catch wild Aetherons!</p>
+
+    <div id="game-container">
+        <div id="map-name-display">Oakhaven Town</div>
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        
+        <div id="battle-screen">
+            <div class="hud">
+                <div>
+                    <div>Wild <span id="enemy-name"></span> (<span id="enemy-type"></span>)</div>
+                    <div>HP: <span id="enemy-hp"></span></div>
+                </div>
+                <div style="text-align: right;">
+                    <div><span id="player-aetheron-name"></span></div>
+                    <div>HP: <span id="player-hp"></span></div>
+                </div>
+            </div>
+            <h1 id="enemy-sprite" style="font-size: 80px; text-align: center; margin: 0;">❓</h1>
+            <div id="message-box">A wild Aetheron appeared!</div>
+            
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between;">
+                <button class="retro-button" style="width: 45%;" onclick="attack()">Attack</button>
+                <button class="retro-button" style="width: 45%;" onclick="catchAetheron()">Catch</button>
+                <button class="retro-button" style="width: 100%;" onclick="run()">Run</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="party-container">
+        <h3 style="margin: 0 0 10px 0;">Your Party</h3>
+        <div id="party-list"></div>
+    </div>
+
+    <script>
+        // ==========================================
+        // DATABASE & STATE
+        // ==========================================
+        const aetheronDatabase = {
+            1: { id: 1, name: "Sproutling", type: "Flora", baseHp: 45, baseAtk: 12, sprite: "🌱" },
+            2: { id: 2, name: "Ignipup", type: "Fire", baseHp: 39, baseAtk: 14, sprite: "🔥" },
+            3: { id: 3, name: "Aquafloat", type: "Aqua", baseHp: 44, baseAtk: 11, sprite: "💧" }
+        };
+
+        const typeChart = {
+            "Fire": { strongAgainst: "Flora", weakTo: "Aqua" },
+            "Aqua": { strongAgainst: "Fire", weakTo: "Flora" },
+            "Flora": { strongAgainst: "Aqua", weakTo: "Fire" }
+        };
+
+        let playerState = {
+            party: [{ 
+                id: 2, name: "Ignipup", type: "Fire", 
+                currentHp: 39, maxHp: 39, attack: 14 
+            }]
+        };
+
+        function updatePartyDisplay() {
+            const list = document.getElementById('party-list');
+            list.innerHTML = "";
+            playerState.party.forEach(a => {
+                let div = document.createElement('div');
+                div.className = 'party-member';
+                div.innerText = `${a.name} - HP: ${a.currentHp}/${a.maxHp}`;
+                list.appendChild(div);
+            });
+        }
+        updatePartyDisplay();
+
+        // ==========================================
+        // ENGINE & MAPS
+        // ==========================================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const tileSize = 40; 
+        
+        const palettes = {
+            'player': { '1': '#ffcccc', '2': '#ee3333', '3': '#3333ff', '4': '#000000' },
+            'nature': { '1': '#A0D080', '2': '#58c07c', '3': '#388850', '4': '#081820' },
+            'water':  { '1': '#a0e8f0', '2': '#28ccdf', '3': '#0a80a0', '4': '#081820' },
+            'building':{ '1': '#f0f0f0', '2': '#c0c0c0', '3': '#800000', '4': '#081820' },
+            'path':   { '1': '#f8e8b0', '2': '#e0c8a0', '3': '#b09070', '4': '#081820' }
+        };
+
+        const tileset = {
+            0: { palette: 'path', pixels: ["11111111","11111111","11211111","11111112","11111111","11112111","12111111","11111111"]},
+            1: { palette: 'nature', pixels: ["........","........",".4....4.","424..424","43244234","43333334",".444444.","........"]},
+            2: { palette: 'nature', pixels: ["..4444..",".433334.","43233234","43333334","43344334",".443344.","..4334..","..4444.."]},
+            3: { palette: 'path', pixels: ["........",".444444.","43333334","43222234","43222234","43333334",".444444.","........"]},
+            4: { palette: 'building', pixels: ["44444444","41111114","41111114","42222224","42222224","44444444","42222224","44444444"]},
+            5: { palette: 'water', pixels: ["22222222","22442222","24114222","22222222","22222442","22224114","22222222","22222222"]},
+            6: { palette: 'building', pixels: ["....44..","..44334.",".4333334","43333334","43333334","44444444","........","........"]}
+        };
+
+        const playerSprites = {
+            palette: 'player',
+            'down': [["..4444..",".411114.","..4224..",".433334.","24233242","24233242","..4334..",".44..44."], ["..4444..",".411114.","..4224..",".433334.","24233242","24233242","..44..4.","...44..."]],
+            'up': [["..4444..",".422224.","..4224..",".433334.","24333342","24333342","..4334..",".44..44."], ["..4444..",".422224.","..4224..",".433334.","24333342","24333342","..44..4.","...44..."]],
+            'left': [["..4444..",".411114.","..42224.","..43334.","..43334.","..433334","..44..44","........"], ["..4444..",".411114.","..42224.","..43334.","..43334.","..433334","...44...", "........"]],
+            'right': [["..4444..",".411114.","42224..","43334..","43334..","433334..","44..44..","........"], ["..4444..",".411114.","42224..","43334..","43334..","433334..","...44...", "........"]]
+        };
+
+        function drawPixelArt(startX, startY, artArray, paletteName, pixelSize = 5) {
+            const currentPalette = palettes[paletteName];
+            for (let r = 0; r < artArray.length; r++) {
+                for (let c = 0; c < artArray[r].length; c++) {
+                    let colorKey = artArray[r][c];
+                    if (colorKey !== '.') {
+                        ctx.fillStyle = currentPalette[colorKey];
+                        ctx.fillRect(Math.floor(startX) + c * pixelSize, Math.floor(startY) + r * pixelSize, pixelSize, pixelSize);
+                    }
+                }
+            }
+        }
+
+        const mapData = {
+            "Oakhaven": {
+                name: "Oakhaven Town",
+                grid: [
+                    [2,2,2,2,3,3,2,2,2,2], [2,6,6,0,0,0,0,6,6,2], [2,4,4,0,0,0,0,4,4,2],
+                    [2,0,0,0,0,0,0,0,0,2], [2,0,5,5,5,5,0,0,0,2], [2,0,5,5,5,5,0,0,0,2],
+                    [2,0,0,0,0,0,0,0,0,2], [2,2,0,0,0,0,6,6,2,2], [2,2,0,0,0,0,4,4,2,2],
+                    [2,2,2,2,2,2,2,2,2,2]
+                ],
+                transitions: { "0,4": { map: "Route1", x: 4, y: 8 }, "0,5": { map: "Route1", x: 5, y: 8 } }
+            },
+            "Route1": {
+                name: "Route 1",
+                grid: [
+                    [2,2,2,2,2,2,2,2,2,2], [2,1,1,2,0,0,1,1,1,2], [2,1,1,2,0,0,2,2,1,2],
+                    [2,0,0,0,0,0,0,0,0,2], [2,1,2,2,0,0,1,1,1,2], [2,1,1,1,0,0,1,1,1,2],
+                    [2,0,0,0,0,0,0,0,0,2], [2,1,1,1,0,0,2,1,1,2], [2,1,1,1,0,0,2,1,1,2],
+                    [2,2,2,2,3,3,2,2,2,2]
+                ],
+                transitions: { "9,4": { map: "Oakhaven", x: 4, y: 1 }, "9,5": { map: "Oakhaven", x: 5, y: 1 } }
+            }
+        };
+
+        // ==========================================
+        // MOVEMENT
+        // ==========================================
+        let currentMapId = "Oakhaven";
+        let player = { x: 3 * tileSize, y: 3 * tileSize, speed: 3, size: 28, margin: 6, direction: 'up', frame: 0, walkTimer: 0 };
+        let keys = { w: false, a: false, s: false, d: false };
+        let inBattle = false;
+        let distanceWalkedInGrass = 0;
+        let isProcessingTurn = false; 
+
+        window.addEventListener('keydown', (e) => { 
+            let key = e.key.toLowerCase();
+            if(keys.hasOwnProperty(key)) keys[key] = true; 
+        });
+        window.addEventListener('keyup', (e) => { 
+            let key = e.key.toLowerCase();
+            if(keys.hasOwnProperty(key)) keys[key] = false; 
+        });
+
+        function showMapName() {
+            const mapLabel = document.getElementById('map-name-display');
+            mapLabel.innerText = mapData[currentMapId].name;
+            mapLabel.style.display = 'block';
+            setTimeout(() => { mapLabel.style.display = 'none'; }, 2000);
+        }
+
+        function isSolid(x, y) {
+            let col = Math.floor(x / tileSize);
+            let row = Math.floor(y / tileSize);
+            let grid = mapData[currentMapId].grid;
+            if (row < 0 || row >= grid.length || col < 0 || col >= grid[0].length) return true;
+            let tile = grid[row][col];
+            return tile === 2 || tile === 4 || tile === 5 || tile === 6;
+        }
+
+        function canMoveTo(newX, newY) {
+            let left = newX + player.margin, right = newX + player.margin + player.size;
+            let top = newY + player.margin, bottom = newY + player.margin + player.size;
+            return !isSolid(left, top) && !isSolid(right, top) && !isSolid(left, bottom) && !isSolid(right, bottom);
+        }
+
+        function checkEvents() {
+            let centerCol = Math.floor((player.x + tileSize/2) / tileSize);
+            let centerRow = Math.floor((player.y + tileSize/2) / tileSize);
+            let currentTile = mapData[currentMapId].grid[centerRow][centerCol];
+
+            if (currentTile === 3) {
+                let transitionKey = `${centerRow},${centerCol}`;
+                let t = mapData[currentMapId].transitions[transitionKey];
+                if (t) {
+                    currentMapId = t.map;
+                    player.x = t.x * tileSize; 
+                    player.y = t.y * tileSize;
+                    showMapName();
+                }
+            }
+
+            if (currentTile === 1) {
+                distanceWalkedInGrass += player.speed;
+                if (distanceWalkedInGrass > 50) {
+                    distanceWalkedInGrass = 0;
+                    let hasAlive = playerState.party.some(a => a.currentHp > 0);
+                    if (hasAlive && Math.random() < 0.12) {
+                        keys = { w: false, a: false, s: false, d: false };
+                        startBattle();
+                    }
+                }
+            } else { distanceWalkedInGrass = 0; }
+        }
+
+        function update() {
+            if (inBattle) return;
+            let moved = false, targetX = player.x, targetY = player.y;
+
+            if (keys.w) { targetY -= player.speed; player.direction = 'up'; moved = true; }
+            else if (keys.s) { targetY += player.speed; player.direction = 'down'; moved = true; }
+            else if (keys.a) { targetX -= player.speed; player.direction = 'left'; moved = true; }
+            else if (keys.d) { targetX += player.speed; player.direction = 'right'; moved = true; }
+
+            if (targetX !== player.x && canMoveTo(targetX, player.y)) player.x = targetX;
+            if (targetY !== player.y && canMoveTo(player.x, targetY)) player.y = targetY;
+
+            if (moved) {
+                checkEvents();
+                player.walkTimer++;
+                if (player.walkTimer > 10) { player.frame = player.frame === 0 ? 1 : 0; player.walkTimer = 0; }
+            } else { player.frame = 0; player.walkTimer = 0; }
+        }
+
+        function drawMap() {
+            ctx.fillStyle = "#1a1a1a";
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+            let activeGrid = mapData[currentMapId].grid;
+
+            for (let y = 0; y < activeGrid.length; y++) {
+                for (let x = 0; x < activeGrid[y].length; x++) {
+                    let tileType = activeGrid[y][x];
+                    
+                    drawPixelArt(x * tileSize, y * tileSize, tileset[0].pixels, tileset[0].palette);
+                    if (tileType !== 0) {
+                        drawPixelArt(x * tileSize, y * tileSize, tileset[tileType].pixels, tileset[tileType].palette);
+                    }
+                }
+            }
+            drawPixelArt(player.x, player.y, playerSprites[player.direction][player.frame], playerSprites.palette);
+        }
+
+        function gameLoop() { update(); drawMap(); requestAnimationFrame(gameLoop); }
+
+        // ==========================================
+        // BATTLE LOGIC 
+        // ==========================================
+        let currentEnemy = null;
+        let enemyCurrentHp = 0;
+
+        function getFirstAlive() {
+            return playerState.party.find(a => a.currentHp > 0);
+        }
+
+        function refreshBattleUI() {
+            let activeAetheron = getFirstAlive();
+            document.getElementById('enemy-hp').innerText = enemyCurrentHp;
+            document.getElementById('player-hp').innerText = `${activeAetheron.currentHp}/${activeAetheron.maxHp}`;
+        }
+
+        function startBattle() {
+            inBattle = true;
+            isProcessingTurn = false;
+            document.getElementById('battle-screen').style.display = 'flex';
+            
+            const randomId = Math.floor(Math.random() * 3) + 1;
+            currentEnemy = aetheronDatabase[randomId];
+            enemyCurrentHp = currentEnemy.baseHp; 
+            
+            document.getElementById('enemy-name').innerText = currentEnemy.name;
+            document.getElementById('enemy-type').innerText = currentEnemy.type;
+            document.getElementById('enemy-sprite').innerText = currentEnemy.sprite;
+
+            let activeAetheron = getFirstAlive();
+            document.getElementById('player-aetheron-name').innerText = activeAetheron.name;
+            
+            refreshBattleUI();
+            document.getElementById('message-box').innerText = `A wild ${currentEnemy.name} appeared! Go, ${activeAetheron.name}!`;
+        }
+
+        function attack() {
+            if (isProcessingTurn) return;
+            isProcessingTurn = true;
+            
+            let activeAetheron = getFirstAlive();
+            let baseDamage = Math.floor(Math.random() * 4) + Math.floor(activeAetheron.attack / 2);
+            
+            let multiplier = 1, flavorText = "";
+            let typeInfo = typeChart[activeAetheron.type];
+
+            if (typeInfo.strongAgainst === currentEnemy.type) { multiplier = 2.0; flavorText = " It's super effective!"; } 
+            else if (typeInfo.weakTo === currentEnemy.type) { multiplier = 0.5; flavorText = " It's not very effective..."; }
+
+            let damage = Math.floor(baseDamage * multiplier);
+            if (damage < 1) damage = 1; 
+            
+            enemyCurrentHp -= damage;
+            if (enemyCurrentHp < 0) enemyCurrentHp = 0;
+            
+            refreshBattleUI();
+            document.getElementById('message-box').innerText = `${activeAetheron.name} attacked for ${damage} damage!${flavorText}`;
+
+            if (enemyCurrentHp === 0) {
+                setTimeout(winBattle, 1500);
+            } else {
+                setTimeout(enemyTurn, 1500);
+            }
+        }
+
+        function winBattle() {
+            document.getElementById('message-box').innerText = `${currentEnemy.name} fainted! You won!`;
+            setTimeout(endBattle, 1500);
+        }
+
+        function catchAetheron() {
+            if (isProcessingTurn) return;
+            isProcessingTurn = true;
+            document.getElementById('message-box').innerText = `You threw an Aether-Cube!`;
+            
+            setTimeout(() => {
+                let hpPercentage = enemyCurrentHp / currentEnemy.baseHp;
+                let catchChance = 1.0 - (hpPercentage * 0.8); 
+                
+                if (Math.random() < catchChance) {
+                    document.getElementById('message-box').innerText = `Gotcha! ${currentEnemy.name} was caught!`;
+                    playerState.party.push({
+                        id: currentEnemy.id, name: currentEnemy.name, type: currentEnemy.type,
+                        currentHp: currentEnemy.baseHp, maxHp: currentEnemy.baseHp, attack: currentEnemy.baseAtk
+                    });
+                    updatePartyDisplay();
+                    setTimeout(endBattle, 1500);
+                } else {
+                    document.getElementById('message-box').innerText = `Oh no! The wild ${currentEnemy.name} broke free!`;
+                    setTimeout(enemyTurn, 1500);
+                }
+            }, 1000);
+        }
+
+        function enemyTurn() {
+            let activeAetheron = getFirstAlive();
+            let baseDamage = Math.floor(Math.random() * 3) + Math.floor(currentEnemy.baseAtk / 2);
+            
+            let multiplier = 1;
+            let typeInfo = typeChart[currentEnemy.type];
+            if (typeInfo.strongAgainst === activeAetheron.type) multiplier = 2.0;
+            else if (typeInfo.weakTo === activeAetheron.type) multiplier = 0.5;
+
+            let damage = Math.floor(baseDamage * multiplier);
+            if (damage < 1) damage = 1;
+
+            activeAetheron.currentHp -= damage;
+            if (activeAetheron.currentHp < 0) activeAetheron.currentHp = 0;
+            
+            refreshBattleUI();
+            document.getElementById('message-box').innerText = `Wild ${currentEnemy.name} attacked for ${damage} damage!`;
+
+            if (activeAetheron.currentHp === 0) {
+                setTimeout(() => {
+                    let nextAlive = getFirstAlive();
+                    if(nextAlive) {
+                        document.getElementById('message-box').innerText = `${activeAetheron.name} fainted! Go, ${nextAlive.name}!`;
+                        refreshBattleUI();
+                        document.getElementById('player-aetheron-name').innerText = nextAlive.name;
+                        isProcessingTurn = false;
+                    } else {
+                        document.getElementById('message-box').innerText = `You have no more Aetherons! You blacked out...`;
+                        setTimeout(() => {
+                            // Emergency Heal
+                            playerState.party.forEach(a => a.currentHp = a.maxHp);
+                            updatePartyDisplay();
+                            endBattle();
+                        }, 2000);
+                    }
+                }, 1500);
+            } else {
+                isProcessingTurn = false;
+            }
+        }
+
+        function run() {
+            if (isProcessingTurn) return;
+            document.getElementById('message-box').innerText = "Got away safely!";
+            setTimeout(endBattle, 1000);
+        }
+
+        function endBattle() {
+            inBattle = false;
+            document.getElementById('battle-screen').style.display = 'none';
+        }
+
+        showMapName();
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
