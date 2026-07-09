@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>The Shattered Spire - The Complete Journey</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: monospace; background: #0a0a0a; color: #eee; margin: 0; padding: 20px; text-align: center; }
+        h1, h2, h3 { color: #fff; margin-top: 0; text-transform: uppercase; letter-spacing: 2px; }
+        #menu { max-width: 600px; margin: auto; margin-top: 50px; }
+        #game { display: none; margin: auto; max-width: 800px; }
+        canvas { background: #1a1a1a; border: 4px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
+        .panel { border: 1px solid #333; padding: 20px; margin-bottom: 15px; background: #111; text-align: left; }
+        input, button { padding: 12px; margin: 5px 0; font-family: monospace; font-size: 16px; width: 100%; box-sizing: border-box; }
+        button { background: #4CAF50; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #45a049; }
+        .warrior-text { color: #ff5555; font-weight: bold; }
+        .mage-text { color: #55aaff; font-weight: bold; }
+        #dialogue-box { height: 80px; background: #000; border: 2px solid #555; margin-top: 10px; padding: 10px; text-align: left; font-size: 16px; line-height: 1.4; display: none; }
+        #status-bar { display: flex; justify-content: space-between; font-size: 14px; background: #222; padding: 10px; border: 2px solid #333; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="menu">
+    <h1>The Shattered Spire</h1>
+    <p style="color:#aaa;">A 30-Minute Co-op Adventure</p>
+    <div class="panel">
+        <h3 class="warrior-text">Player 1: The Warrior (Host)</h3>
+        <p>Uses physical attacks, moves heavy objects.</p>
+        <button onclick="hostGame()">Create Room</button>
+        <p id="host-id" style="text-align:center; font-size: 18px; margin-top: 10px;"></p>
+    </div>
+    <div class="panel">
+        <h3 class="mage-text">Player 2: The Mage (Join)</h3>
+        <p>Uses magic, reads invisible runes.</p>
+        <input type="text" id="join-id" placeholder="Paste Host ID Here">
+        <button onclick="joinGame()" style="background: #2196F3;">Join Room</button>
+    </div>
+</div>
+
+<div id="game">
+    <div id="status-bar">
+        <div id="p1-stats" class="warrior-text">Warrior HP: 100/100</div>
+        <div id="objective-text" style="color: #ffd700; font-weight:bold;">Objective: Escape the Cells</div>
+        <div id="p2-stats" class="mage-text">Mage HP: 100/100</div>
+    </div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="dialogue-box"></div>
+</div>
+
+<script>
+    // --- 1. CORE VARIABLES & NETWORKING ---
+    let peer = null, conn = null, myRole = '';
+    const keys = { w: false, a: false, s: false, d: false, space: false };
+    let p2Inputs = { w: false, a: false, s: false, d: false, space: false };
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const TILE_SIZE = 40;
+    const COLS = 20, ROWS = 15;
+
+    function hostGame() {
+        peer = new Peer();
+        peer.on('open', id => document.getElementById('host-id').innerText = "Share this ID: " + id);
+        peer.on('connection', connection => { conn = connection; myRole = 'Warrior'; setupConnection(); });
+    }
+
+    function joinGame() {
+        const id = document.getElementById('join-id').value.trim();
+        if(!id) return alert("Enter an ID");
+        peer = new Peer();
+        peer.on('open', () => { conn = peer.connect(id); myRole = 'Mage'; setupConnection(); });
+    }
+
+    function setupConnection() {
+        conn.on('open', () => {
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('game').style.display = 'block';
+            if (myRole === 'Warrior') setInterval(hostGameLoop, 1000/30);
+            else setInterval(sendInputs, 1000/30);
+            requestAnimationFrame(drawLoop);
+        });
+        conn.on('data', data => {
+            if (myRole === 'Warrior' && data.type === 'input') p2Inputs = data.keys;
+            else if (myRole === 'Mage' && data.type === 'state') state = data.state;
+        });
+    }
+
+    window.addEventListener('keydown', e => {
+        if(['w','a','s','d'].includes(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true;
+        if(e.key === ' ') { keys.space = true; e.preventDefault(); }
+    });
+    window.addEventListener('keyup', e => {
+        if(['w','a','s','d'].includes(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false;
+        if(e.key === ' ') keys.space = false;
+    });
+    function sendInputs() { conn.send({ type: 'input', keys: keys }); }
+
+    // --- 2. MASSIVE GAME DATA (MAPS & STORY) ---
+    // 0 = Floor, 1 = Wall, 2 = Door (Locked), 3 = Pit (Invisible to Warrior)
+    const LEVEL_1 = [
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,2,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,3,3,3,3,3,3,3,3,3,3,3,3,3,3,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+// --- 3. STATE MANAGEMENT ---
+    let state = {
+        phase: 1, // 1: Cells, 2: Chasm, 3: Boss
+        dialogue: { active: true, text: "WARRIOR: Where are we? MAGE: We are trapped. Can you see the levers?", timer: 150 },
+        p1: { x: 120, y: 120, size: 24, color: '#ff5555', hp: 100, maxHp: 100, attackCooldown: 0 },
+        p2: { x: 640, y: 120, size: 24, color: '#55aaff', hp: 100, maxHp: 100, attackCooldown: 0 },
+        puzzles: {
+            levers: [
+                {x: 60, y: 60, color: 'purple', id: 1}, 
+                {x: 60, y: 100, color: 'teal', id: 2}, 
+                {x: 60, y: 140, color: 'yellow', id: 3}
+            ],
+            stepped: [],
+            doorsOpen: false,
+            bridgeActive: false
+        },
+        boss: { x: 360, y: 240, size: 60, hp: 300, maxHp: 300, phase: 'Physical', active: false }
+    };
+
+    // --- 4. GAME ENGINE LOGIC (HOST) ---
+    const SPEED = 4;
+
+    // AABB Collision with the Tile Grid
+    function isWall(x, y, size) {
+        // Check all 4 corners of the player box
+        const corners = [
+            { cx: x, cy: y }, { cx: x + size - 1, cy: y },
+            { cx: x, cy: y + size - 1 }, { cx: x + size - 1, cy: y + size - 1 }
+        ];
+        
+        for (let c of corners) {
+            let gridX = Math.floor(c.cx / TILE_SIZE);
+            let gridY = Math.floor(c.cy / TILE_SIZE);
+            
+            if (gridY < 0 || gridY >= ROWS || gridX < 0 || gridX >= COLS) return true; // Map bounds
+            
+            let tile = LEVEL_1[gridY][gridX];
+            
+            if (tile === 1) return true; // Solid wall
+            if (tile === 2 && !state.puzzles.doorsOpen) return true; // Locked Door
+            // Tile 3 is the pit. Warrior falls if bridge isn't active.
+            if (tile === 3 && !state.puzzles.bridgeActive) {
+                // If the player is the Warrior, they can't cross tile 3 without the bridge
+                if (x === state.p1.x && y === state.p1.y) return true; 
+            }
+        }
+        return false;
+    }
+
+    function checkCollision(rect1, rect2) {
+        return rect1.x < rect2.x + rect2.size && rect1.x + rect1.size > rect2.x &&
+               rect1.y < rect2.y + rect2.size && rect1.y + rect1.size > rect2.y;
+    }
+
+    function movePlayer(p, input) {
+        let nextX = p.x;
+        let nextY = p.y;
+        
+        if (input.w) nextY -= SPEED;
+        if (input.s) nextY += SPEED;
+        if (input.a) nextX -= SPEED;
+        if (input.d) nextX += SPEED;
+        
+        if (!isWall(nextX, p.y, p.size)) p.x = nextX;
+        if (!isWall(p.x, nextY, p.size)) p.y = nextY;
+    }
+function hostGameLoop() {
+        // Dialogue Timer
+        if (state.dialogue.active) {
+            state.dialogue.timer--;
+            if (state.dialogue.timer <= 0) state.dialogue.active = false;
+        }
+
+        // Action Cooldowns
+        if (state.p1.attackCooldown > 0) state.p1.attackCooldown--;
+        if (state.p2.attackCooldown > 0) state.p2.attackCooldown--;
+
+        // Move Players
+        movePlayer(state.p1, keys);
+        movePlayer(state.p2, p2Inputs);
+
+        // --- PHASE 1: The Cell Puzzles ---
+        if (state.phase === 1) {
+            // Warrior checks levers
+            state.puzzles.levers.forEach(lever => {
+                const leverRect = { x: lever.x, y: lever.y, size: 20 };
+                if (checkCollision(state.p1, leverRect) && !state.puzzles.stepped.includes(lever.id)) {
+                    state.puzzles.stepped.push(lever.id);
+                }
+            });
+
+            if (state.puzzles.stepped.length === 3) {
+                // Correct Order: Yellow (3), Purple (1), Teal (2)
+                if (state.puzzles.stepped[0]===3 && state.puzzles.stepped[1]===1 && state.puzzles.stepped[2]===2) {
+                    state.puzzles.doorsOpen = true;
+                    state.phase = 2;
+                    state.dialogue = { active: true, text: "MAGE: The doors are open! We can proceed south.", timer: 200 };
+                } else {
+                    state.puzzles.stepped = []; // Reset on wrong combination
+                }
+            }
+        }
+
+        // --- PHASE 2: The Invisible Bridge ---
+        if (state.phase === 2) {
+            // Mage must stand on the magical glyph to reveal/solidify the bridge for the Warrior
+            const bridgeGlyph = { x: 680, y: 320, size: 40 }; 
+            if (checkCollision(state.p2, bridgeGlyph)) {
+                state.puzzles.bridgeActive = true;
+            } else {
+                state.puzzles.bridgeActive = false;
+            }
+            
+            // If both players enter the final arena
+            if (state.p1.y > 480 && state.p2.y > 480 && !state.boss.active && state.boss.hp > 0) {
+                state.phase = 3;
+                state.boss.active = true;
+                state.dialogue = { active: true, text: "WARDEN: YOU SHALL NOT LEAVE! (Shifts every 4 seconds)", timer: 250 };
+            }
+        }
+
+        // --- PHASE 3: The Warden Boss ---
+        if (state.phase === 3 && state.boss.active) {
+            // Boss shifts phases based on time
+            if (Date.now() % 8000 < 4000) {
+                state.boss.phase = 'Physical'; // Red - Warrior attacks
+            } else {
+                state.boss.phase = 'Ethereal'; // Blue - Mage attacks
+            }
+
+            // Warrior Attack Check
+            if (keys.space && state.p1.attackCooldown === 0) {
+                state.p1.attackCooldown = 15;
+                const p1Hitbox = { x: state.p1.x - 20, y: state.p1.y - 20, size: state.p1.size + 40 };
+                if (state.boss.phase === 'Physical' && checkCollision(p1Hitbox, state.boss)) {
+                    state.boss.hp -= 15;
+                }
+            }
+
+            // Mage Attack Check
+            if (p2Inputs.space && state.p2.attackCooldown === 0) {
+                state.p2.attackCooldown = 15;
+                const p2Hitbox = { x: state.p2.x - 20, y: state.p2.y - 20, size: state.p2.size + 40 };
+                if (state.boss.phase === 'Ethereal' && checkCollision(p2Hitbox, state.boss)) {
+                    state.boss.hp -= 15;
+                }
+            }
+
+            if (state.boss.hp <= 0) {
+                state.boss.active = false;
+                state.dialogue = { active: true, text: "THE WARDEN FALLS. The Spire collapses... You survived!", timer: 9999 };
+                document.getElementById('objective-text').innerText = "VICTORY";
+            }
+        }
+
+        // Broadcast updated state to Mage
+        conn.send({ type: 'state', state: state });
+    }
+// --- 5. UI AND RENDERING (BOTH PLAYERS) ---
+    function updateUI() {
+        document.getElementById('p1-stats').innerText = `Warrior HP: ${state.p1.hp}/${state.p1.maxHp}`;
+        document.getElementById('p2-stats').innerText = `Mage HP: ${state.p2.hp}/${state.p2.maxHp}`;
+        
+        const diagBox = document.getElementById('dialogue-box');
+        if (state.dialogue.active) {
+            diagBox.style.display = 'block';
+            diagBox.innerText = state.dialogue.text;
+        } else {
+            diagBox.style.display = 'none';
+        }
+
+        if (state.phase === 1) document.getElementById('objective-text').innerText = "Objective: Escape the Cells";
+        else if (state.phase === 2) document.getElementById('objective-text').innerText = "Objective: Cross the Chasm";
+        else if (state.phase === 3 && state.boss.active) document.getElementById('objective-text').innerText = "Objective: Defeat the Warden";
+    }
+
+    function drawLoop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        updateUI();
+
+        // 1. Draw Map Layer
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                let tile = LEVEL_1[r][c];
+                let x = c * TILE_SIZE;
+                let y = r * TILE_SIZE;
+
+                if (tile === 1) { // Wall
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#222';
+                    ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+                } else if (tile === 2) { // Door
+                    ctx.fillStyle = state.puzzles.doorsOpen ? '#1a1a1a' : '#8B4513';
+                    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                } else if (tile === 3) { // Pit/Bridge
+                    if (myRole === 'Mage') {
+                        // Mage sees the pit clearly
+                        ctx.fillStyle = state.puzzles.bridgeActive ? 'rgba(85, 170, 255, 0.4)' : '#000';
+                        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    } else {
+                        // Warrior just sees dark floor until bridge is active
+                        ctx.fillStyle = state.puzzles.bridgeActive ? 'rgba(85, 170, 255, 0.4)' : '#1a1a1a';
+                        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+        }
+
+        // 2. Draw Phase Specifics
+        if (state.phase === 1) {
+            // Draw Levers
+            state.puzzles.levers.forEach(lever => {
+                ctx.fillStyle = state.puzzles.stepped.includes(lever.id) ? '#444' : lever.color;
+                ctx.fillRect(lever.x, lever.y, 20, 20);
+            });
+            
+            // Draw Mage's Secret Clue on the wall
+            if (myRole === 'Mage') {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.font = '20px monospace';
+                ctx.fillText("ORDER: Yellow, Purple, Teal", 450, 80);
+            }
+        }
+
+        if (state.phase >= 2) {
+            // Draw Bridge Glyph
+            ctx.fillStyle = myRole === 'Mage' ? 'rgba(85, 170, 255, 0.8)' : 'rgba(85, 170, 255, 0.2)';
+            ctx.beginPath();
+            ctx.arc(700, 340, 20, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        if (state.phase === 3 && state.boss.hp > 0) {
+            // Draw Boss
+            ctx.fillStyle = state.boss.phase === 'Physical' ? '#ff5555' : '#55aaff';
+            ctx.fillRect(state.boss.x, state.boss.y, state.boss.size, state.boss.size);
+            
+            // Draw Boss HP
+            ctx.fillStyle = 'red';
+            ctx.fillRect(state.boss.x - 20, state.boss.y - 15, 100, 8);
+            ctx.fillStyle = '#ffaa00';
+            ctx.fillRect(state.boss.x - 20, state.boss.y - 15, 100 * (state.boss.hp / state.boss.maxHp), 8);
+        }
+
+        // 3. Draw Players
+        ctx.fillStyle = state.p1.color;
+        ctx.fillRect(state.p1.x, state.p1.y, state.p1.size, state.p1.size);
+        if (state.p1.attackCooldown > 10) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.fillRect(state.p1.x - 8, state.p1.y - 8, state.p1.size + 16, state.p1.size + 16);
+        }
+
+        ctx.fillStyle = state.p2.color;
+        ctx.fillRect(state.p2.x, state.p2.y, state.p2.size, state.p2.size);
+        if (state.p2.attackCooldown > 10) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.fillRect(state.p2.x - 8, state.p2.y - 8, state.p2.size + 16, state.p2.size + 16);
+        }
+
+        requestAnimationFrame(drawLoop);
+    }
+</script>
+<!-- ACT 2 EXPANSION PACK -->
+<script>
+    // --- ACT 2 DATA ---
+    // 0 = Floor, 1 = Wall, 4 = Shadow Mine (Trap), 5 = Exit Stairs
+    const LEVEL_2 = [
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,5,1],
+        [1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,1],
+        [1,0,1,0,0,0,1,4,4,4,1,0,0,0,0,0,0,0,0,1],
+        [1,0,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,0,1],
+        [1,0,0,0,0,4,0,0,1,0,0,0,0,4,0,0,0,1,0,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+        [1,0,1,1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,0,1],
+        [1,0,1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,1],
+        [1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,1,1,1,1,1],
+        [1,0,1,0,1,4,1,0,0,0,1,0,1,4,4,4,4,4,0,1],
+        [1,0,1,0,1,0,1,1,1,1,1,0,1,1,1,1,1,1,0,1],
+        [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+
+    // UPGRADE 1: Make the collision system aware of multiple levels
+    function isWall(x, y, size) {
+        const corners = [
+            { cx: x, cy: y }, { cx: x + size - 1, cy: y },
+            { cx: x, cy: y + size - 1 }, { cx: x + size - 1, cy: y + size - 1 }
+        ];
+        
+        const currentMap = state.phase >= 4 ? LEVEL_2 : LEVEL_1;
+
+        for (let c of corners) {
+            let gridX = Math.floor(c.cx / TILE_SIZE);
+            let gridY = Math.floor(c.cy / TILE_SIZE);
+            
+            if (gridY < 0 || gridY >= ROWS || gridX < 0 || gridX >= COLS) return true;
+            
+            let tile = currentMap[gridY][gridX];
+            
+            if (tile === 1) return true; 
+            
+            // Act 1 Collisions
+            if (state.phase <= 3) {
+                if (tile === 2 && !state.puzzles.doorsOpen) return true;
+                if (tile === 3 && !state.puzzles.bridgeActive && x === state.p1.x && y === state.p1.y) return true;
+            }
+            
+            // Act 2 Exit Door Registration
+            if (state.phase >= 4 && tile === 5) {
+                if (x === state.p1.x && y === state.p1.y) state.puzzles.p1AtExit = true;
+                if (x === state.p2.x && y === state.p2.y) state.puzzles.p2AtExit = true;
+            }
+        }
+        return false;
+    }
+
+    // UPGRADE 2: Inject Phase 4 Logic safely
+    const oldHostGameLoop = hostGameLoop;
+    
+    hostGameLoop = function() {
+        if (state.phase <= 3) {
+            oldHostGameLoop(); // Run the original Act 1 code
+            
+            // Transition to Act 2 when the Warden Boss dies
+            if (state.phase === 3 && state.boss.hp <= 0 && !state.puzzles.transitioning) {
+                state.puzzles.transitioning = true;
+                setTimeout(() => {
+                    state.phase = 4;
+                    state.p1.x = 40; state.p1.y = 40; // Teleport to maze start
+                    state.p2.x = 80; state.p2.y = 40;
+                    state.puzzles.p1AtExit = false;
+                    state.puzzles.p2AtExit = false;
+                    state.dialogue = { active: true, text: "MAGE: The Catacombs... Careful, I sense shadow mines. Follow my path exactly.", timer: 350 };
+                }, 4000); // 4 second dramatic pause after boss dies
+            }
+        } else {
+            // --- PHASE 4 LOGIC (ACT 2) ---
+            if (state.dialogue.active) {
+                state.dialogue.timer--;
+                if (state.dialogue.timer <= 0) state.dialogue.active = false;
+            }
+
+            movePlayer(state.p1, keys);
+            movePlayer(state.p2, p2Inputs);
+
+            // Shadow Mine Detection (Warrior Only)
+            let p1GridX = Math.floor((state.p1.x + state.p1.size/2) / TILE_SIZE);
+            let p1GridY = Math.floor((state.p1.y + state.p1.size/2) / TILE_SIZE);
+            
+            if (LEVEL_2[p1GridY][p1GridX] === 4) {
+                state.p1.hp -= 20;
+                state.p1.x = 40; state.p1.y = 40; // Punish by sending back to start
+                state.dialogue = { active: true, text: "WARRIOR: Argh! A trap! MAGE: I told you to follow me!", timer: 150 };
+                
+                if(state.p1.hp <= 0) {
+                    state.dialogue = { active: true, text: "THE WARRIOR HAS FALLEN. GAME OVER.", timer: 9999 };
+                }
+            }
+
+            // Win Condition
+            if (state.puzzles.p1AtExit && state.puzzles.p2AtExit) {
+                state.phase = 5;
+                state.dialogue = { active: true, text: "You have escaped the Catacombs! (End of Act 2)", timer: 9999 };
+            }
+
+            conn.send({ type: 'state', state: state });
+        }
+    };
+
+    // UPGRADE 3: Make the renderer aware of the new Map graphics
+    const oldDrawLoop = drawLoop;
+    
+    drawLoop = function() {
+        if (state.phase <= 3) {
+            oldDrawLoop(); // Use original graphics for Act 1
+        } else {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            updateUI();
+            
+            document.getElementById('objective-text').innerText = state.phase === 4 
+                ? "Objective: Navigate the Shadow Mines" 
+                : "VICTORY";
+
+            // Draw Act 2
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    let tile = LEVEL_2[r][c];
+                    let x = c * TILE_SIZE;
+                    let y = r * TILE_SIZE;
+
+                    if (tile === 1) { // Maze Walls
+                        ctx.fillStyle = '#2a1e35'; 
+                        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                        ctx.strokeStyle = '#111';
+                        ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+                    } else if (tile === 4) { // Mines
+                        ctx.fillStyle = '#0a0a0a';
+                        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                        
+                        // ASYMMETRIC VIEW: Only Mage sees the mines
+                        if (myRole === 'Mage') {
+                            ctx.fillStyle = 'rgba(150, 0, 255, 0.6)';
+                            ctx.beginPath();
+                            ctx.arc(x + 20, y + 20, 10, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    } else if (tile === 5) { // Exit
+                        ctx.fillStyle = '#ffd700';
+                        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    } else { // Floor
+                        ctx.fillStyle = '#0a0a0a';
+                        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+
+            // Draw Players
+            ctx.fillStyle = state.p1.color;
+            ctx.fillRect(state.p1.x, state.p1.y, state.p1.size, state.p1.size);
+
+            ctx.fillStyle = state.p2.color;
+            ctx.fillRect(state.p2.x, state.p2.y, state.p2.size, state.p2.size);
+
+            requestAnimationFrame(drawLoop);
+        }
+    };
+</script>
+<!-- ACT 3 EXPANSION PACK -->
+<script>
+    // --- ACT 3 DATA ---
+    // 0 = Floor, 1 = Wall, 6 = Lava (Lethal to players, consumes blocks), 7 = Exit
+    const LEVEL_3 = [
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,6,6,0,0,0,0,0,0,0,7,1],
+        [1,0,0,0,0,0,0,0,0,6,6,0,0,0,0,0,0,0,7,1],
+        [1,0,0,0,0,0,0,0,0,6,6,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,6,6,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,6,6,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,6,6,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,6,6,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,6,6,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,6,6,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,6,6,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,6,6,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,6,6,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,6,6,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+
+    // UPGRADE 1: Overwrite isWall to handle all 3 Acts and block physics
+    isWall = function(x, y, size, isBlock = false) {
+        const corners = [
+            { cx: x, cy: y }, { cx: x + size - 1, cy: y },
+            { cx: x, cy: y + size - 1 }, { cx: x + size - 1, cy: y + size - 1 }
+        ];
+        
+        let currentMap = LEVEL_1;
+        if (state.phase >= 5) currentMap = LEVEL_3;
+        else if (state.phase === 4) currentMap = LEVEL_2;
+
+        for (let c of corners) {
+            let gridX = Math.floor(c.cx / TILE_SIZE);
+            let gridY = Math.floor(c.cy / TILE_SIZE);
+            
+            if (gridY < 0 || gridY >= ROWS || gridX < 0 || gridX >= COLS) return true;
+            
+            let tile = currentMap[gridY][gridX];
+            
+            if (tile === 1) return true; 
+            
+            // Act 1 Check
+            if (state.phase <= 3) {
+                if (tile === 2 && !state.puzzles.doorsOpen) return true;
+                if (tile === 3 && !state.puzzles.bridgeActive && x === state.p1.x && y === state.p1.y) return true;
+            }
+            
+            // Act 2 Check
+            if (state.phase === 4 && tile === 5) {
+                if (x === state.p1.x && y === state.p1.y) state.puzzles.p1AtExit = true;
+                if (x === state.p2.x && y === state.p2.y) state.puzzles.p2AtExit = true;
+            }
+
+            // Act 3 Check
+            if (state.phase >= 5) {
+                if (tile === 6 && !isBlock) return true; // Lava blocks players, but allows blocks to slide in
+                if (tile === 7) {
+                    if (x === state.p1.x && y === state.p1.y) state.puzzles.p1AtExitAct3 = true;
+                    if (x === state.p2.x && y === state.p2.y) state.puzzles.p2AtExitAct3 = true;
+                }
+            }
+        }
+        return false;
+    };
+
+    // UPGRADE 2: Inject Phase 5 (The Forge) logic safely
+    const oldHostGameLoopAct2 = hostGameLoop;
+    
+    hostGameLoop = function() {
+        if (state.phase <= 4) {
+            oldHostGameLoopAct2(); // Run previous Acts
+            
+            // Trigger transition into Act 3
+            if (state.phase === 5 && !state.puzzles.act3Started) {
+                state.puzzles.act3Started = true;
+                
+                state.p1.x = 80; state.p1.y = 240; // Warrior starts on the West
+                state.p2.x = 640; state.p2.y = 240; // Mage starts trapped on the East
+                
+                state.puzzles.p1AtExitAct3 = false;
+                state.puzzles.p2AtExitAct3 = false;
+                
+                // Spawn two heavy pushable blocks
+                state.blocks = [
+                    { x: 160, y: 240, size: 30, active: true },
+                    { x: 160, y: 320, size: 30, active: true }
+                ];
+
+                state.dialogue = { active: true, text: "WARRIOR: The Forge... Mage, you're trapped! MAGE: Push those heavy iron blocks into the lava to bridge the gap!", timer: 350 };
+            }
+        } else {
+            // --- PHASE 5 LOGIC (ACT 3) ---
+            if (state.dialogue.active) {
+                state.dialogue.timer--;
+                if (state.dialogue.timer <= 0) state.dialogue.active = false;
+            }
+
+            movePlayer(state.p1, keys);
+            
+            // Warrior Block Pushing Logic
+            if (state.blocks) {
+                state.blocks.forEach(b => {
+                    if (!b.active) return;
+                    
+                    // If Warrior walks into a block, move the block
+                    if (checkCollision(state.p1, b)) {
+                        let dx = 0, dy = 0;
+                        if (keys.w) dy = -SPEED;
+                        if (keys.s) dy = SPEED;
+                        if (keys.a) dx = -SPEED;
+                        if (keys.d) dx = SPEED;
+                        
+                        b.x += dx; 
+                        b.y += dy;
+                        
+                        // If the block hits a wall, stop it, and stop the Warrior too
+                        if (isWall(b.x, b.y, b.size, true)) {
+                            b.x -= dx; b.y -= dy;
+                            state.p1.x -= dx; state.p1.y -= dy; 
+                        }
+                    }
+                    
+                    // Check if block was pushed fully onto Lava
+                    let bGridX = Math.floor((b.x + b.size/2) / TILE_SIZE);
+                    let bGridY = Math.floor((b.y + b.size/2) / TILE_SIZE);
+                    
+                    if (LEVEL_3[bGridY][bGridX] === 6) {
+                        LEVEL_3[bGridY][bGridX] = 0; // The block cools the lava into solid floor
+                        b.active = false; // Block sinks and is consumed
+                        state.dialogue = { active: true, text: "WARRIOR: The iron cooled the lava! Keep going!", timer: 150 };
+                    }
+                });
+            }
+
+            // Move Mage (Mage cannot push blocks, so they treat them as walls)
+            let prevP2 = {x: state.p2.x, y: state.p2.y};
+            movePlayer(state.p2, p2Inputs);
+            if (state.blocks) {
+                state.blocks.forEach(b => {
+                    if (b.active && checkCollision(state.p2, b)) {
+                        state.p2.x = prevP2.x; state.p2.y = prevP2.y; // Block Mage movement
+                    }
+                });
+            }
+
+            // Win Condition
+            if (state.puzzles.p1AtExitAct3 && state.puzzles.p2AtExitAct3) {
+                state.phase = 6;
+                state.dialogue = { active: true, text: "You have crossed The Forge! (End of Act 3)", timer: 9999 };
+            }
+
+            conn.send({ type: 'state', state: state });
+        }
+    };
+
+    // UPGRADE 3: Rendering engine for Act 3 visuals
+    const oldDrawLoopAct2 = drawLoop;
+    
+    drawLoop = function() {
+        if (state.phase <= 4) {
+            oldDrawLoopAct2(); 
+        } else {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            updateUI();
+            
+            document.getElementById('objective-text').innerText = state.phase === 5 
+                ? "Objective: Bridge the Lava River" 
+                : "VICTORY";
+
+            // Draw Act 3 Map
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    let tile = LEVEL_3[r][c];
+                    let x = c * TILE_SIZE;
+                    let y = r * TILE_SIZE;
+
+                    if (tile === 1) { // Forge Walls
+                        ctx.fillStyle = '#4a2511'; 
+                        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                        ctx.strokeStyle = '#2d1406';
+                        ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+                    } else if (tile === 6) { // Lava
+                        ctx.fillStyle = '#ff4500';
+                        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                        
+                        // Add some animated bubbling lava texture
+                        ctx.fillStyle = 'rgba(255, 255, 0, 0.4)';
+                        let offset = (Date.now() / 10 + x) % TILE_SIZE;
+                        ctx.fillRect(x + offset / 2, y + 10, 8, 8);
+                    } else if (tile === 7) { // Exit
+                        ctx.fillStyle = '#ffd700';
+                        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    } else { // Obsidian Floor
+                        ctx.fillStyle = '#1a100c';
+                        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+
+            // Draw Heavy Blocks
+            if (state.blocks) {
+                state.blocks.forEach(b => {
+                    if (b.active) {
+                        ctx.fillStyle = '#777';
+                        ctx.fillRect(b.x, b.y, b.size, b.size);
+                        
+                        // Draw iron cross pattern on block
+                        ctx.strokeStyle = '#333';
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.moveTo(b.x, b.y);
+                        ctx.lineTo(b.x + b.size, b.y + b.size);
+                        ctx.moveTo(b.x + b.size, b.y);
+                        ctx.lineTo(b.x, b.y + b.size);
+                        ctx.stroke();
+                        ctx.lineWidth = 1; // reset
+                    }
+                });
+            }
+
+            // Draw Players
+            ctx.fillStyle = state.p1.color;
+            ctx.fillRect(state.p1.x, state.p1.y, state.p1.size, state.p1.size);
+
+            ctx.fillStyle = state.p2.color;
+            ctx.fillRect(state.p2.x, state.p2.y, state.p2.size, state.p2.size);
+
+            requestAnimationFrame(drawLoop);
+        }
+    };
+</script>
+<script>
+    // --- ACT 4 DATA ---
+    // 0 = Floor, 1 = Wall, 8 = Lore Pedestal, 9 = The Final Seal
+    const LEVEL_4 = [
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1],
+        [1,0,1,8,1,0,0,0,0,0,0,0,0,0,0,1,8,1,0,1],
+        [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,1,9,9,1,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
+        [1,0,1,8,1,0,0,0,0,0,0,0,0,0,0,1,8,1,0,1],
+        [1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+
+    // UPGRADE 1: Overwrite isWall to handle all 4 Acts
+    isWall = function(x, y, size, isBlock = false) {
+        const corners = [
+            { cx: x, cy: y }, { cx: x + size - 1, cy: y },
+            { cx: x, cy: y + size - 1 }, { cx: x + size - 1, cy: y + size - 1 }
+        ];
+        
+        let currentMap = LEVEL_1;
+        if (state.phase >= 7) currentMap = LEVEL_4;
+        else if (state.phase >= 5) currentMap = LEVEL_3;
+        else if (state.phase === 4) currentMap = LEVEL_2;
+
+        for (let c of corners) {
+            let gridX = Math.floor(c.cx / TILE_SIZE);
+            let gridY = Math.floor(c.cy / TILE_SIZE);
+            
+            if (gridY < 0 || gridY >= ROWS || gridX < 0 || gridX >= COLS) return true;
+            
+            let tile = currentMap[gridY][gridX];
+            
+            if (tile === 1) return true; 
+            if (tile === 8) return true; // Lore Pedestals are solid
+            
+            // Act 1 Check
+            if (state.phase <= 3) {
+                if (tile === 2 && !state.puzzles.doorsOpen) return true;
+                if (tile === 3 && !state.puzzles.bridgeActive && x === state.p1.x && y === state.p1.y) return true;
+            }
+            
+            // Act 3 Check
+            if (state.phase === 5 && tile === 6 && !isBlock) return true; 
+        }
+        return false;
+    };
+
+    // UPGRADE 2: Inject Phase 7 (The Archive) logic safely
+    const oldHostGameLoopAct3 = hostGameLoop;
+    
+    hostGameLoop = function() {
+        if (state.phase <= 5) {
+            oldHostGameLoopAct3(); 
+            
+            // Trigger transition into Act 4
+            if (state.phase === 6 && !state.puzzles.act4Started) {
+                state.puzzles.act4Started = true;
+                
+                state.p1.x = 360; state.p1.y = 400; // Start at the bottom
+                state.p2.x = 400; state.p2.y = 400;
+                
+                state.puzzles.loreRead = [];
+                state.puzzles.betrayalTriggered = false;
+
+                state.dialogue = { active: true, text: "MAGE: We made it to the Archive. The exit seal is in the center... but what are these books?", timer: 400 };
+                
+                setTimeout(() => { state.phase = 7; }, 100);
+            }
+        } else {
+            // --- PHASE 7 LOGIC (ACT 4) ---
+            if (state.dialogue.active) {
+                state.dialogue.timer--;
+                if (state.dialogue.timer <= 0) state.dialogue.active = false;
+            }
+
+            // Only allow movement if the betrayal hasn't fully locked them in
+            if (!state.puzzles.betrayalTriggered) {
+                movePlayer(state.p1, keys);
+                movePlayer(state.p2, p2Inputs);
+            }
+
+            // Lore Pedestal Checks (Proximity)
+            const checkLore = (player, pX, pY, id, text) => {
+                if (Math.abs(player.x - pX) < 50 && Math.abs(player.y - pY) < 50 && !state.puzzles.loreRead.includes(id)) {
+                    state.puzzles.loreRead.push(id);
+                    state.dialogue = { active: true, text: text, timer: 450 };
+                }
+            };
+
+            // Pedestal coordinates (based on tile map)
+            checkLore(state.p1, 120, 120, 1, "ARCHIVE LOG 1: 'The Spire was not built to keep intruders out. It was built to keep the Devourer in.'");
+            checkLore(state.p1, 640, 120, 2, "ARCHIVE LOG 2: 'The Devourer's mind is fractured. It believes itself to be a human Warrior.'");
+            checkLore(state.p1, 120, 440, 3, "ARCHIVE LOG 3: 'Only a Mage of the Dark Court can manipulate the Devourer into breaking its own seals.'");
+            checkLore(state.p1, 640, 440, 4, "ARCHIVE LOG 4: 'If the seals are broken, the world burns.'");
+
+            // The Betrayal Trigger (Center Seal)
+            let p2GridX = Math.floor((state.p2.x + state.p2.size/2) / TILE_SIZE);
+            let p2GridY = Math.floor((state.p2.y + state.p2.size/2) / TILE_SIZE);
+            
+            if (LEVEL_4[p2GridY][p2GridX] === 9 && !state.puzzles.betrayalTriggered && state.puzzles.loreRead.length >= 2) {
+                state.puzzles.betrayalTriggered = true;
+                state.p2.color = '#aa00ff'; // Mage turns dark purple
+                
+                // Sequence of betrayal dialogue
+                state.dialogue = { active: true, text: "MAGE: You've read the logs, haven't you? What a shame...", timer: 300 };
+                
+                setTimeout(() => {
+                    state.dialogue = { active: true, text: "MAGE: Thank you for breaking the seals, 'Warrior'. My master is free.", timer: 300 };
+                }, 5000);
+                
+                setTimeout(() => {
+                    state.dialogue = { active: true, text: "MAGE: I am no longer your ally. Now, you die.", timer: 9999 };
+                    state.phase = 8; // Transitions to a final boss fight (Act 5) or cliffhanger!
+                }, 10000);
+            }
+
+            conn.send({ type: 'state', state: state });
+        }
+    };
+
+    // UPGRADE 3: Rendering engine for Act 4 visuals
+    const oldDrawLoopAct3 = drawLoop;
+    
+    drawLoop = function() {
+        if (state.phase <= 6) {
+            oldDrawLoopAct3(); 
+        } else {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            updateUI();
+            
+            document.getElementById('objective-text').innerText = "Objective: Search the Archive";
+
+            // Draw Act 4 Map
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    let tile = LEVEL_4[r][c];
+                    let x = c * TILE_SIZE;
+                    let y = r * TILE_SIZE;
+
+                    if (tile === 1) { // Archive Walls (Marble)
+                        ctx.fillStyle = '#e0e0e0'; 
+                        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                        ctx.strokeStyle = '#999';
+                        ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+                    } else if (tile === 8) { // Lore Pedestals
+                        ctx.fillStyle = '#b8860b'; // Dark goldenrod
+                        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                        ctx.fillStyle = '#fff';
+                        ctx.fillRect(x + 10, y + 10, 20, 15); // Little book on top
+                    } else if (tile === 9) { // The Final Seal
+                        ctx.fillStyle = state.puzzles.betrayalTriggered ? '#aa00ff' : '#00fa9a'; // Turns dark magic when triggered
+                        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                        
+                        // Pentagram/Seal lines
+                        ctx.strokeStyle = '#fff';
+                        ctx.beginPath();
+                        ctx.arc(x + 20, y + 20, 15, 0, Math.PI * 2);
+                        ctx.stroke();
+                    } else { // Royal Carpet Floor
+                        ctx.fillStyle = '#800000'; // Deep Red
+                        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                        
+                        // Carpet pattern
+                        if ((r+c)%2 === 0) {
+                            ctx.fillStyle = '#8b0000';
+                            ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                        }
+                    }
+                }
+            }
+
+            // Draw Players
+            ctx.fillStyle = state.p1.color;
+            ctx.fillRect(state.p1.x, state.p1.y, state.p1.size, state.p1.size);
+
+            ctx.fillStyle = state.p2.color;
+            ctx.fillRect(state.p2.x, state.p2.y, state.p2.size, state.p2.size);
+
+            requestAnimationFrame(drawLoop);
+        }
+    };
+</script>	
+</body>
+</html>
