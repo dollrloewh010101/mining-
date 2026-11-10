@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title>Master Blacksmith: Widescreen Multiplayer Update</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         body { background: #1a1a1c; color: #d7d7d8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 10px; overflow: hidden; }
         
@@ -105,6 +107,11 @@
         #chat-messages::-webkit-scrollbar { width: 4px; }
         #chat-messages::-webkit-scrollbar-track { background: transparent; }
         #chat-messages::-webkit-scrollbar-thumb { background: #444; }
+        .google-auth-box { background: #1a1a1c; border: 2px solid #444449; padding: 8px; margin-bottom: 8px; border-radius: 4px; text-align: center; }
+        .google-profile-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 6px; }
+        .google-avatar { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #29adff; }
+        #dialog-modal { border-color: #ffec27; width: 340px; z-index: 30; }
+        #dialog-input { width: 90%; background: #111; border: 2px solid #5f574f; color: #fff; padding: 6px; margin-top: 8px; font-family: inherit; font-size: 0.75rem; }
     </style>
 </head>
 <body>
@@ -125,6 +132,7 @@
         <div class="ui-row">
             <span id="bag-v" style="color:#ab5236; cursor:pointer;" onclick="toggleBackpack()" title="Click to open Backpack">🎒 0</span>
             <span id="sys-v" style="color:#C2C3C7; cursor:pointer;" onclick="openSystemMenu()" title="Open Save/Settings">⚙️ SYSTEM</span>
+            <span id="google-status-v" style="color:#29adff; cursor:pointer;" onclick="openSystemMenu()" title="Google Account Status">🔑 LOGIN</span>
             <span>COINS: <b id="coins-v" class="gold-v">0</b></span>
             <span>PICK: <b id="pick-v" style="color:#29adff">Stone</b></span>
             <span>📜 LICENCE: <b id="license-lvl-v" style="color:#83769c">1</b></span>
@@ -201,8 +209,36 @@
         </div>
     </div>
 
+    <div id="dialog-modal" class="game-menu">
+        <h3 id="dialog-title" style="color:#ffec27; margin-top:0;">NOTICE</h3>
+        <div id="dialog-message" style="font-size:0.75rem; color:#d7d7d8; margin:10px 0; word-break:break-all;"></div>
+        <input type="text" id="dialog-input" style="display:none;" autocomplete="off">
+        <div style="display:flex; gap:8px; margin-top:12px;">
+            <button id="dialog-confirm-btn" onclick="handleDialogConfirm()" style="background:#00e436; color:white; flex:1;">OK</button>
+            <button id="dialog-cancel-btn" onclick="closeDialogModal()" style="background:#5f574f; color:white; flex:1; display:none;">CANCEL</button>
+        </div>
+    </div>
+
     <div id="system-menu" class="game-menu">
         <h3 style="color:#C2C3C7; margin-top:0;">⚙️ SYSTEM MENU</h3>
+
+        <div style="font-size: 0.65rem; color:#888; text-align:left; margin: 5px 0 5px 0; font-weight: bold;">GOOGLE ACCOUNT</div>
+        <div class="google-auth-box">
+            <div id="google-logged-out-view">
+                <div id="g_id_signin" style="display:flex; justify-content:center; margin-bottom:4px;"></div>
+                <button id="btn-google-oauth" onclick="triggerGoogleLogin()" style="background:#29adff; color:white; font-size:0.7rem; padding:5px; margin-top:2px;">🔑 SIGN IN WITH GOOGLE</button>
+            </div>
+            <div id="google-logged-in-view" style="display:none;">
+                <div class="google-profile-row">
+                    <img id="google-user-pic" class="google-avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Avatar">
+                    <div style="text-align:left;">
+                        <div id="google-user-name" style="font-size:0.75rem; color:#00e436; font-weight:bold;">Player</div>
+                        <div id="google-user-email" style="font-size:0.6rem; color:#aaa;"></div>
+                    </div>
+                </div>
+                <button onclick="signOutGoogle()" style="background:#ff004d; color:white; font-size:0.65rem; padding:4px; margin-top:2px;">🚪 SIGN OUT</button>
+            </div>
+        </div>
         
         <div style="font-size: 0.65rem; color:#888; text-align:left; margin: 10px 0 5px 0; font-weight: bold;">P2P MULTIPLAYER (NO SERVER)</div>
         <div class="sys-grid">
@@ -324,6 +360,206 @@
         const ORES = ['coal', 'tin', 'copper', 'iron', 'silver', 'gold', 'mithril', 'adamant'];
         let currentForgeMix = {}; ORES.forEach(o => currentForgeMix[o] = 0);
 
+        const GOOGLE_CLIENT_ID = "441465868808-q59kmad7tkevgj8t0gjiue02utm83mbu.apps.googleusercontent.com";
+        let googleUser = null;
+        let googleTokenClient = null;
+        let dialogCallback = null;
+
+        function showNoticeModal(title, message) {
+            document.getElementById('dialog-title').innerText = title;
+            document.getElementById('dialog-message').innerText = message;
+            document.getElementById('dialog-input').style.display = 'none';
+            document.getElementById('dialog-cancel-btn').style.display = 'none';
+            dialogCallback = null;
+            document.getElementById('dialog-modal').style.display = 'block';
+        }
+
+        function showPromptModal(title, message, defaultVal, callback) {
+            document.getElementById('dialog-title').innerText = title;
+            document.getElementById('dialog-message').innerText = message;
+            const inp = document.getElementById('dialog-input');
+            inp.style.display = 'block';
+            inp.value = defaultVal || '';
+            document.getElementById('dialog-cancel-btn').style.display = 'block';
+            dialogCallback = (confirmed) => {
+                if (confirmed && callback) callback(inp.value.trim());
+            };
+            document.getElementById('dialog-modal').style.display = 'block';
+            setTimeout(() => inp.focus(), 50);
+        }
+
+        function showConfirmModal(title, message, callback) {
+            document.getElementById('dialog-title').innerText = title;
+            document.getElementById('dialog-message').innerText = message;
+            document.getElementById('dialog-input').style.display = 'none';
+            document.getElementById('dialog-cancel-btn').style.display = 'block';
+            dialogCallback = (confirmed) => {
+                if (confirmed && callback) callback();
+            };
+            document.getElementById('dialog-modal').style.display = 'block';
+        }
+
+        function handleDialogConfirm() {
+            document.getElementById('dialog-modal').style.display = 'none';
+            if (dialogCallback) {
+                const cb = dialogCallback;
+                dialogCallback = null;
+                cb(true);
+            }
+        }
+
+        function closeDialogModal() {
+            document.getElementById('dialog-modal').style.display = 'none';
+            dialogCallback = null;
+        }
+
+        function parseJwtPayload(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+                return JSON.parse(jsonPayload);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function handleGoogleCredentialResponse(response) {
+            const payload = parseJwtPayload(response.credential);
+            if (payload) {
+                setGoogleUser({
+                    uid: payload.sub,
+                    name: payload.name || payload.given_name || 'Blacksmith',
+                    email: payload.email || '',
+                    picture: payload.picture || ''
+                });
+            }
+        }
+
+        function setGoogleUser(userObj) {
+            googleUser = userObj;
+            try {
+                localStorage.setItem('masterBlacksmith_GoogleUser', JSON.stringify(googleUser));
+            } catch (e) {}
+            updateGoogleAuthUI();
+            loadGame();
+            addFloatingText(game.player.x, game.player.y - 20, "WELCOME " + googleUser.name.toUpperCase() + "!", C.green);
+            addChatMessage("System: Signed in as " + googleUser.name, "chat-sys");
+        }
+
+        function updateGoogleAuthUI() {
+            const loggedOutEl = document.getElementById('google-logged-out-view');
+            const loggedInEl = document.getElementById('google-logged-in-view');
+            const statusBarEl = document.getElementById('google-status-v');
+            if (googleUser) {
+                loggedOutEl.style.display = 'none';
+                loggedInEl.style.display = 'block';
+                document.getElementById('google-user-name').innerText = googleUser.name;
+                document.getElementById('google-user-email').innerText = googleUser.email;
+                const picEl = document.getElementById('google-user-pic');
+                if (googleUser.picture) {
+                    picEl.src = googleUser.picture;
+                    picEl.style.display = 'inline-block';
+                } else {
+                    picEl.style.display = 'none';
+                }
+                statusBarEl.innerText = "🟢 " + googleUser.name.split(' ')[0];
+                statusBarEl.style.color = "#00e436";
+            } else {
+                loggedOutEl.style.display = 'block';
+                loggedInEl.style.display = 'none';
+                statusBarEl.innerText = "🔑 LOGIN";
+                statusBarEl.style.color = "#29adff";
+            }
+        }
+
+        function initGoogleAuth() {
+            try {
+                const savedUser = localStorage.getItem('masterBlacksmith_GoogleUser');
+                if (savedUser) {
+                    googleUser = JSON.parse(savedUser);
+                    updateGoogleAuthUI();
+                }
+            } catch (e) {}
+
+            if (window.google && window.google.accounts) {
+                try {
+                    window.google.accounts.id.initialize({
+                        client_id: GOOGLE_CLIENT_ID,
+                        callback: handleGoogleCredentialResponse,
+                        auto_select: false
+                    });
+                    const btnContainer = document.getElementById('g_id_signin');
+                    if (btnContainer) {
+                        window.google.accounts.id.renderButton(btnContainer, {
+                            theme: 'filled_black',
+                            size: 'small',
+                            text: 'signin_with',
+                            shape: 'rectangular'
+                        });
+                    }
+                    googleTokenClient = window.google.accounts.oauth2.initTokenClient({
+                        client_id: GOOGLE_CLIENT_ID,
+                        scope: 'openid email profile',
+                        callback: (tokenResponse) => {
+                            if (tokenResponse && tokenResponse.access_token) {
+                                fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                                    headers: { Authorization: 'Bearer ' + tokenResponse.access_token }
+                                })
+                                .then(r => r.json())
+                                .then(info => {
+                                    setGoogleUser({
+                                        uid: info.sub || 'google_user',
+                                        name: info.name || info.given_name || 'Blacksmith',
+                                        email: info.email || '',
+                                        picture: info.picture || ''
+                                    });
+                                })
+                                .catch(() => {
+                                    showNoticeModal("GOOGLE SIGN-IN", "Authenticated token received, but profile fetch failed.");
+                                });
+                            }
+                        }
+                    });
+                } catch (e) {
+                    console.error("Google Auth Init Error:", e);
+                }
+            }
+        }
+
+        function triggerGoogleLogin() {
+            if (googleTokenClient) {
+                try {
+                    googleTokenClient.requestAccessToken();
+                    return;
+                } catch (e) {}
+            }
+            if (window.google && window.google.accounts && window.google.accounts.id) {
+                try {
+                    window.google.accounts.id.prompt();
+                    return;
+                } catch (e) {}
+            }
+            initGoogleAuth();
+            if (googleTokenClient) {
+                googleTokenClient.requestAccessToken();
+            } else {
+                showNoticeModal("GOOGLE LOGIN", "Google Identity Services is loading or blocked by browser settings.");
+            }
+        }
+
+        function signOutGoogle() {
+            saveGame();
+            if (window.google && window.google.accounts && window.google.accounts.id) {
+                try { window.google.accounts.id.disableAutoSelect(); } catch (e) {}
+            }
+            googleUser = null;
+            try { localStorage.removeItem('masterBlacksmith_GoogleUser'); } catch (e) {}
+            updateGoogleAuthUI();
+            addFloatingText(game.player.x, game.player.y - 20, "SIGNED OUT", C.orange);
+            addChatMessage("System: Signed out of Google.", "chat-sys");
+        }
+
         let peer = null;
         let peerConn = null;
         let otherPlayer = null;
@@ -354,29 +590,30 @@
                 });
             } catch(e) {
                 console.error("PeerJS not loaded or blocked:", e);
-                alert("Multiplayer requires internet access and PeerJS to be unblocked.");
+                showNoticeModal("MULTIPLAYER ERROR", "Multiplayer requires internet access and PeerJS to be unblocked.");
             }
         }
 
         function joinMultiplayer() {
-            try {
-                game.isHost = false;
-                let targetId = prompt("Enter the Host's ID:");
+            showPromptModal("JOIN MULTIPLAYER", "Enter the Host's Server ID:", "", (targetId) => {
                 if(!targetId) return;
-                document.getElementById('mp-status').innerHTML = "Connecting to Host...";
-                peer = new Peer();
-                peer.on('open', () => {
-                    peerConn = peer.connect(targetId);
-                    peerConn.on('open', () => {
-                        setupConnection();
+                try {
+                    game.isHost = false;
+                    document.getElementById('mp-status').innerHTML = "Connecting to Host...";
+                    peer = new Peer();
+                    peer.on('open', () => {
+                        peerConn = peer.connect(targetId);
+                        peerConn.on('open', () => {
+                            setupConnection();
+                        });
+                        peerConn.on('error', (err) => {
+                            document.getElementById('mp-status').innerHTML = `<span style='color:#ff004d'>Connection Failed</span>`;
+                        });
                     });
-                    peerConn.on('error', (err) => {
-                        document.getElementById('mp-status').innerHTML = `<span style='color:#ff004d'>Connection Failed</span>`;
-                    });
-                });
-            } catch(e) {
-                console.error("PeerJS Error:", e);
-            }
+                } catch(e) {
+                    console.error("PeerJS Error:", e);
+                }
+            });
         }
 
         function setupConnection() {
@@ -611,6 +848,9 @@
         }
 
         const SAVE_KEY = 'masterBlacksmith_SaveData_V2';
+        function getActiveSaveKey() {
+            return googleUser && googleUser.uid ? `${SAVE_KEY}_${googleUser.uid}` : SAVE_KEY;
+        }
 
         function assembleSavePackage() {
             return {
@@ -649,6 +889,7 @@
         function saveGame() {
             try {
                 const saveData = assembleSavePackage();
+                localStorage.setItem(getActiveSaveKey(), JSON.stringify(saveData));
                 localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
                 addFloatingText(game.player.x + 10, game.player.y - 10, "LOCAL SAVE OK", C.green);
             } catch(e) {
@@ -658,7 +899,7 @@
 
         function loadGame() {
             try {
-                const savedStr = localStorage.getItem(SAVE_KEY);
+                const savedStr = localStorage.getItem(getActiveSaveKey()) || localStorage.getItem(SAVE_KEY);
                 if (savedStr) {
                     unpackSavePackage(JSON.parse(savedStr));
                     addFloatingText(game.player.x + 10, game.player.y - 10, "LOCAL LOAD OK", C.blue); 
@@ -675,22 +916,29 @@
                 const pkg = assembleSavePackage();
                 const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(pkg))));
                 const shareUrl = window.location.origin + window.location.pathname + '#' + b64;
-                navigator.clipboard.writeText(shareUrl).then(() => {
-                    alert("🔗 Link copied to clipboard!\n\nBookmark this link or paste it anywhere online to load your save progress instantly.");
-                }).catch(() => { prompt("Copy manually:", shareUrl); });
-            } catch(e) { alert("Failed to build link."); }
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(shareUrl).then(() => {
+                        showNoticeModal("🔗 CLOUD LINK COPIED", "Shareable save link copied to clipboard! Bookmark or paste it anywhere to restore progress.");
+                    }).catch(() => {
+                        showPromptModal("🔗 COPY CLOUD LINK", "Copy your shareable save link below:", shareUrl, null);
+                    });
+                } else {
+                    showPromptModal("🔗 COPY CLOUD LINK", "Copy your shareable save link below:", shareUrl, null);
+                }
+            } catch(e) { showNoticeModal("ERROR", "Failed to build cloud link."); }
         }
 
         function importTextCode() {
-            const code = prompt("Paste your save string here:"); 
-            if (!code) return;
-            try {
-                const cleanCode = code.includes('#') ? code.split('#')[1] : code;
-                const jsonStr = decodeURIComponent(escape(atob(cleanCode)));
-                unpackSavePackage(JSON.parse(jsonStr));
-                addFloatingText(game.player.x + 10, game.player.y - 10, "CODE IMPORTED!", C.green); 
-                closeMenus();
-            } catch(e) { alert("❌ Invalid format."); }
+            showPromptModal("📥 IMPORT SAVE CODE", "Paste your save string or shareable URL below:", "", (code) => {
+                if (!code) return;
+                try {
+                    const cleanCode = code.includes('#') ? code.split('#')[1] : code;
+                    const jsonStr = decodeURIComponent(escape(atob(cleanCode)));
+                    unpackSavePackage(JSON.parse(jsonStr));
+                    addFloatingText(game.player.x + 10, game.player.y - 10, "CODE IMPORTED!", C.green); 
+                    closeMenus();
+                } catch(e) { showNoticeModal("IMPORT ERROR", "❌ Invalid save code format."); }
+            });
         }
 
         function checkForUrlHashSave() {
@@ -699,20 +947,23 @@
                     const b64 = window.location.hash.substring(1); 
                     const jsonStr = decodeURIComponent(escape(atob(b64)));
                     const data = JSON.parse(jsonStr);
-                    if (confirm("🔗 Found a cloud save link! Load it? (Overwrites local progress)")) {
+                    showConfirmModal("🔗 CLOUD SAVE FOUND", "Load cloud save link? (Overwrites current local progress)", () => {
                         unpackSavePackage(data); 
                         addFloatingText(game.player.x + 10, game.player.y - 10, "CLOUD DATA LOADED!", C.green);
-                    }
+                    });
                     history.replaceState(null, null, ' ');
                 } catch(e) { console.error("Error decoding link parameters."); }
             }
         }
 
         function wipeSave() { 
-            if (confirm("Are you sure you want to wipe save data?")) { 
-                try { localStorage.removeItem(SAVE_KEY); } catch(e){}
+            showConfirmModal("🗑️ WIPE LOCAL DATA", "Are you sure you want to permanently wipe your local save data?", () => {
+                try {
+                    localStorage.removeItem(getActiveSaveKey());
+                    localStorage.removeItem(SAVE_KEY);
+                } catch(e){}
                 location.reload(); 
-            } 
+            });
         }
 
         function openSystemMenu() { 
@@ -750,6 +1001,8 @@
 
         window.onload = () => { 
             try {
+                initGoogleAuth();
+                setTimeout(initGoogleAuth, 1000);
                 loadGame(); 
                 checkForUrlHashSave(); 
                 spawnNodes(1);
@@ -758,7 +1011,7 @@
                 draw(); 
             } catch(e) {
                 console.error("Game crashed on load:", e);
-                alert("Game encountered a fatal error on load. Check console.");
+                showNoticeModal("LOAD ERROR", "Game encountered an error on load. Check console.");
             }
         };
 
@@ -1158,7 +1411,7 @@
             }
         }
 
-        function listMarketItem(idx) { if (game.marketItem) { alert("Clear active listing first!"); return; } game.marketItem = game.finishedItems[idx]; game.finishedItems.splice(idx, 1); game.marketNpc = null; let baseTime = Math.max(80, 400 - (game.popularity - 100)); game.marketTimer = baseTime + Math.random() * 80; renderMarketStall(); renderBackpack(); saveGame(); }
+        function listMarketItem(idx) { if (game.marketItem) { showNoticeModal("MARKET STALL", "Clear active listing first!"); return; } game.marketItem = game.finishedItems[idx]; game.finishedItems.splice(idx, 1); game.marketNpc = null; let baseTime = Math.max(80, 400 - (game.popularity - 100)); game.marketTimer = baseTime + Math.random() * 80; renderMarketStall(); renderBackpack(); saveGame(); }
         function cancelMarketListing() { if (!game.marketItem) return; game.finishedItems.push(game.marketItem); game.marketItem = null; game.marketNpc = null; renderMarketStall(); renderBackpack(); saveGame(); }
         function triggerNpcSpawn() { if (!game.marketItem) return; let baseValue = game.marketItem.value; let popularityMult = 1 + (game.popularity - 100) / 350; let initialOffer = Math.floor(baseValue * popularityMult * (0.85 + Math.random() * 0.3)); const list = ["Gimli Ironvein", "Thorgan", "Bram", "Fiona", "Hilda", "Roderick", "Cedric", "Alvina", "Garrick"]; game.marketNpc = { name: list[Math.floor(Math.random() * list.length)], currentOffer: initialOffer, patience: Math.floor(2 + Math.random() * 3), maxBudget: Math.floor(initialOffer * (1.2 + Math.random() * 0.5)) }; if (document.getElementById('sell-menu').style.display === 'block') renderMarketStall(); saveGame(); }
         function acceptNpcOffer() { if (!game.marketNpc || !game.marketItem) return; let finalPrice = game.marketNpc.currentOffer; game.coins += finalPrice; let q = game.marketItem.quality; let popDelta = 0; if (["Rare", "Epic", "Masterwork", "Legendary"].includes(q)) { if (q === "Rare") popDelta = 6; if (q === "Epic") popDelta = 12; if (q === "Masterwork") popDelta = 22; if (q === "Legendary") popDelta = 45; } else { if (game.marketItem.name === "Strange Chunk" || game.marketItem.name === "Pile of Ash") popDelta = -20; else popDelta = -6; } game.popularity = Math.max(10, Math.min(1000, game.popularity + popDelta)); addFloatingText(game.player.x + 10, game.player.y - 10, `+${finalPrice}C`, C.green); if (popDelta > 0) addFloatingText(game.player.x + 10, game.player.y - 25, `⭐ REP UP!`, C.yellow); if (popDelta < 0) addFloatingText(game.player.x + 10, game.player.y - 25, `📉 REP DOWN!`, C.red); game.marketItem = null; game.marketNpc = null; renderMarketStall(); renderBackpack(); saveGame(); }
