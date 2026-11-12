@@ -132,6 +132,10 @@
         #commission-menu { border-color: #ffec27; width: 460px; z-index: 22; }
         #workers-menu { border-color: #00e436; width: 420px; z-index: 22; }
         #leaderboard-menu { border-color: #29adff; width: 460px; z-index: 22; }
+        #lobby-menu { border-color: #83769c; width: 500px; z-index: 24; }
+        .lobby-room-card { background: #36363b; border: 2px solid #444449; padding: 8px 10px; margin: 5px 0; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; text-align: left; }
+        .lobby-room-card:hover { border-color: #29adff; background: #404047; }
+        .lobby-badge { font-size: 0.6rem; padding: 2px 6px; border-radius: 3px; font-weight: bold; text-transform: uppercase; }
         #dialog-modal { border-color: #ffec27; width: 340px; z-index: 30; }
         #dialog-input { width: 90%; background: #111; border: 2px solid #5f574f; color: #fff; padding: 6px; margin-top: 8px; font-family: inherit; font-size: 0.75rem; }
     </style>
@@ -159,6 +163,7 @@
             <span id="recipe-btn-v" style="color:#ffac30; cursor:pointer;" onclick="openRecipeMenu()" title="Open Recipe Grimoire (R)">📖 RECIPES</span>
             <span id="worker-btn-v" style="color:#00e436; cursor:pointer;" onclick="openWorkersMenu()" title="Manage Offline Miners">👷 0</span>
             <span id="rank-btn-v" style="color:#ffec27; cursor:pointer;" onclick="openLeaderboardMenu()" title="Cloud Save & Leaderboard">🏆 RANK</span>
+            <span id="lobby-btn-v" style="color:#83769c; cursor:pointer;" onclick="openLobbyMenu()" title="Open Multiplayer Room Lobby">🌐 LOBBY</span>
             <span id="device-mode-v" style="color:#5fcde4; cursor:pointer;" onclick="toggleDeviceMode()" title="Click to switch between PC and Mobile controls">🖥️ PC</span>
             <span id="sys-v" style="color:#C2C3C7; cursor:pointer;" onclick="openSystemMenu()" title="Open Save/Settings">⚙️ SYSTEM</span>
             <span id="google-status-v" style="color:#29adff; cursor:pointer;" onclick="openLoginMenu()" title="Open Google Login Page">🔑 LOGIN</span>
@@ -320,11 +325,8 @@
             </div>
         </div>
         
-        <div style="font-size: 0.65rem; color:#888; text-align:left; margin: 10px 0 5px 0; font-weight: bold;">P2P MULTIPLAYER (NO SERVER)</div>
-        <div class="sys-grid">
-            <button onclick="hostMultiplayer()" style="background:#83769c; color:white; font-size:0.7rem; padding:5px;">📡 HOST GAME</button>
-            <button onclick="joinMultiplayer()" style="background:#29adff; color:white; font-size:0.7rem; padding:5px;">🤝 JOIN GAME</button>
-        </div>
+        <div style="font-size: 0.65rem; color:#888; text-align:left; margin: 10px 0 5px 0; font-weight: bold;">MULTIPLAYER ROOM LOBBY</div>
+        <button onclick="openLobbyMenu()" style="background:#83769c; color:white; font-size:0.75rem; padding:6px; margin-bottom:4px;">🌐 OPEN MULTIPLAYER LOBBY</button>
         <div id="mp-status" style="font-size: 0.65rem; color:#ffec27; margin-top:5px;">Status: Offline</div>
 
         <div style="font-size: 0.65rem; color:#888; text-align:left; margin: 15px 0 5px 0; font-weight: bold;">LOCAL SAVING</div>
@@ -429,6 +431,37 @@
         <div id="cloud-sync-status" style="font-size:0.65rem; color:#ffec27; margin-bottom:6px;"></div>
         <div id="leaderboard-list" style="max-height: 200px; overflow-y: auto; background:#111; border:2px solid #444449; padding:6px; text-align:left; font-size:0.7rem;"></div>
         <button onclick="closeMenus()" style="background:#5f574f; color:white; margin-top:8px;">CLOSE</button>
+    </div>
+
+    <div id="lobby-menu" class="game-menu">
+        <h3 style="color:#83769c; margin-top:0;">🌐 MULTIPLAYER SERVER LOBBY</h3>
+        <div id="lobby-connection-banner" style="background:#111; border:2px solid #444449; padding:6px 10px; margin-bottom:8px; font-size:0.72rem; display:flex; justify-content:space-between; align-items:center;">
+            <span id="lobby-banner-text" style="color:#ffec27;">⚪ Not in a room — Select a channel or create a room below</span>
+            <button id="btn-leave-lobby" onclick="leaveLobbyRoom()" style="display:none; width:auto; padding:3px 8px; margin:0; background:#ff004d; color:white; font-size:0.65rem; border-width:2px;">🚪 LEAVE</button>
+        </div>
+
+        <div style="background:#1a1a1c; border:2px solid #444449; padding:8px; margin-bottom:8px; text-align:left;">
+            <div style="font-size:0.65rem; color:#29adff; font-weight:bold; margin-bottom:4px;">➕ CREATE OR QUICK-JOIN CUSTOM ROOM</div>
+            <div style="display:flex; gap:6px; align-items:center;">
+                <input type="text" id="lobby-room-name-input" placeholder="Room Name (e.g. Dragon Raid)" style="flex:1; background:#111; border:2px solid #5f574f; color:#fff; padding:6px; font-family:inherit; font-size:0.72rem;" autocomplete="off">
+                <select id="lobby-room-tag-select" style="background:#111; border:2px solid #5f574f; color:#fff; padding:6px; font-family:inherit; font-size:0.7rem;">
+                    <option value="Co-Op Mining">⛏️ Co-Op Mining</option>
+                    <option value="Dungeon Boss">⚔️ Dungeon Boss</option>
+                    <option value="PvP Arena">🏆 PvP Arena</option>
+                    <option value="Trading">🤝 Trading</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:6px; margin-top:6px;">
+                <button onclick="createCustomLobbyRoom()" style="background:#00e436; color:white; font-size:0.7rem; padding:6px; flex:1; margin:0;">📡 HOST GAME</button>
+                <button onclick="joinCustomRoomByName()" style="background:#29adff; color:white; font-size:0.7rem; padding:6px; flex:1; margin:0;">🤝 JOIN GAME</button>
+                <button onclick="refreshLobbyRooms()" style="background:#ffac30; color:black; font-size:0.7rem; padding:6px; width:auto; margin:0;">🔄 REFRESH</button>
+            </div>
+        </div>
+
+        <div style="font-size:0.65rem; color:#aaa; text-align:left; font-weight:bold; margin-bottom:4px;">📋 PUBLIC CHANNELS & LIVE PLAYER ROOMS (1-CLICK CONNECT):</div>
+        <div id="lobby-room-list" style="max-height:175px; overflow-y:auto; background:#111; border:2px solid #444449; padding:6px;"></div>
+
+        <button onclick="closeMenus()" style="background:#5f574f; color:white; margin-top:8px;">CLOSE LOBBY</button>
     </div>
 
     <div id="controls-hint-bar" class="controls-hint">WASD:Move | E:Interact/Mine | SPACE:Attack/Forge | B:Bag | R:Recipes | T:Trade | M:Map | N:Minimap | ENTER:Chat</div>
@@ -838,47 +871,290 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        function hostMultiplayer() {
-            try {
-                game.isHost = true;
-                document.getElementById('mp-status').innerHTML = "Generating Server ID...";
-                peer = new Peer(); 
-                peer.on('open', (id) => {
-                    document.getElementById('mp-status').innerHTML = `Hosting! Share this ID with a friend:<br><b style="color:#00e436; font-size:0.8rem; user-select:all;">${id}</b>`;
-                });
-                peer.on('connection', (conn) => {
-                    peerConn = conn;
-                    setupConnection();
-                });
-                peer.on('error', (err) => {
-                    document.getElementById('mp-status').innerHTML = `<span style='color:#ff004d'>Error: ${err.type}</span>`;
-                });
-            } catch(e) {
-                console.error("PeerJS not loaded or blocked:", e);
-                showNoticeModal("MULTIPLAYER ERROR", "Multiplayer requires internet access and PeerJS to be unblocked.");
+        const PUBLIC_LOBBY_CHANNELS = [
+            { id: 'mb_pub_ch1', name: 'Channel 1: Ironvein Plaza', tag: 'Co-Op Mining', color: '#00e436' },
+            { id: 'mb_pub_ch2', name: 'Channel 2: Deep Core Miners', tag: 'Co-Op Mining', color: '#29adff' },
+            { id: 'mb_pub_ch3', name: 'Channel 3: Dungeon Raiders', tag: 'Dungeon Boss', color: '#ff004d' },
+            { id: 'mb_pub_ch4', name: 'Channel 4: Gladiator Arena', tag: 'PvP Arena', color: '#ffac30' },
+            { id: 'mb_pub_ch5', name: 'Channel 5: Merchant Guild', tag: 'Trading', color: '#ffec27' }
+        ];
+        let activeLobbyRoom = null;
+        let lobbyHeartbeatTimer = null;
+
+        function roomNameToPeerId(nameStr) {
+            const slug = (nameStr || 'default').toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').slice(0, 28);
+            return 'mb_lobby_rm_' + (slug || 'room1');
+        }
+
+        function updateLobbyBanner(text, color = '#ffec27', showLeave = false) {
+            const bannerTxt = document.getElementById('lobby-banner-text');
+            const leaveBtn = document.getElementById('btn-leave-lobby');
+            const mpStat = document.getElementById('mp-status');
+            const topBtn = document.getElementById('lobby-btn-v');
+            if (bannerTxt) {
+                bannerTxt.innerHTML = text;
+                bannerTxt.style.color = color;
+            }
+            if (leaveBtn) leaveBtn.style.display = showLeave ? 'inline-block' : 'none';
+            if (mpStat) mpStat.innerHTML = text;
+            if (topBtn) {
+                topBtn.innerText = showLeave ? '🟢 IN ROOM' : '🌐 LOBBY';
+                topBtn.style.color = showLeave ? '#00e436' : '#83769c';
             }
         }
 
-        function joinMultiplayer() {
-            showPromptModal("JOIN MULTIPLAYER", "Enter the Host's Server ID:", "", (targetId) => {
-                if(!targetId) return;
-                try {
-                    game.isHost = false;
-                    document.getElementById('mp-status').innerHTML = "Connecting to Host...";
-                    peer = new Peer();
-                    peer.on('open', () => {
-                        peerConn = peer.connect(targetId);
-                        peerConn.on('open', () => {
-                            setupConnection();
-                        });
-                        peerConn.on('error', (err) => {
-                            document.getElementById('mp-status').innerHTML = `<span style='color:#ff004d'>Connection Failed</span>`;
-                        });
+        function openLobbyMenu() {
+            closeMenus();
+            game.isMenuOpen = true;
+            document.getElementById('lobby-menu').style.display = 'block';
+            refreshLobbyRooms();
+        }
+
+        function publishRoomToDirectory(roomObj) {
+            try {
+                const localRooms = JSON.parse(localStorage.getItem('masterBlacksmith_LobbyRooms') || '[]').filter(r => Date.now() - r.updatedAt < 120000 && r.peerId !== roomObj.peerId);
+                localRooms.push(roomObj);
+                localStorage.setItem('masterBlacksmith_LobbyRooms', JSON.stringify(localRooms));
+            } catch (e) {}
+
+            if (firebaseDb) {
+                firebaseDb.collection('blacksmith_lobbies').doc(roomObj.peerId).set(roomObj, { merge: true }).catch(() => {});
+            }
+        }
+
+        function removeRoomFromDirectory(peerId) {
+            if (!peerId) return;
+            try {
+                const localRooms = JSON.parse(localStorage.getItem('masterBlacksmith_LobbyRooms') || '[]').filter(r => r.peerId !== peerId);
+                localStorage.setItem('masterBlacksmith_LobbyRooms', JSON.stringify(localRooms));
+            } catch (e) {}
+
+            if (firebaseDb) {
+                firebaseDb.collection('blacksmith_lobbies').doc(peerId).delete().catch(() => {});
+            }
+        }
+
+        function leaveLobbyRoom() {
+            if (lobbyHeartbeatTimer) {
+                clearInterval(lobbyHeartbeatTimer);
+                lobbyHeartbeatTimer = null;
+            }
+            if (activeLobbyRoom && game.isHost) {
+                removeRoomFromDirectory(activeLobbyRoom.peerId);
+            }
+            activeLobbyRoom = null;
+            otherPlayer = null;
+            if (peerConn) {
+                try { peerConn.close(); } catch (e) {}
+                peerConn = null;
+            }
+            if (peer) {
+                try { peer.destroy(); } catch (e) {}
+                peer = null;
+            }
+            updateLobbyBanner('⚪ Disconnected — Select a channel or create a room below', '#ffec27', false);
+            refreshLobbyRooms();
+        }
+
+        function hostRoomByPeerId(peerId, roomName, roomTag) {
+            leaveLobbyRoom();
+            try {
+                game.isHost = true;
+                const hostName = googleUser ? googleUser.name : 'Blacksmith';
+                updateLobbyBanner(`⏳ Creating Room "<b>${roomName}</b>"...`, '#ffec27', true);
+                peer = new Peer(peerId);
+
+                peer.on('open', (id) => {
+                    activeLobbyRoom = {
+                        peerId: id,
+                        roomName: roomName,
+                        tag: roomTag || 'Co-Op Mining',
+                        hostName: hostName,
+                        map: game.map,
+                        updatedAt: Date.now()
+                    };
+                    publishRoomToDirectory(activeLobbyRoom);
+                    if (lobbyHeartbeatTimer) clearInterval(lobbyHeartbeatTimer);
+                    lobbyHeartbeatTimer = setInterval(() => {
+                        if (activeLobbyRoom && game.isHost) {
+                            activeLobbyRoom.updatedAt = Date.now();
+                            activeLobbyRoom.map = game.map;
+                            publishRoomToDirectory(activeLobbyRoom);
+                        }
+                    }, 20000);
+                    updateLobbyBanner(`🟢 Hosting "<b>${roomName}</b>" — Waiting for players to click Join in Lobby!`, '#00e436', true);
+                    refreshLobbyRooms();
+                });
+
+                peer.on('connection', (conn) => {
+                    peerConn = conn;
+                    setupConnection();
+                    updateLobbyBanner(`🟢 Room "<b>${roomName}</b>" — Connected with Peer!`, '#00e436', true);
+                });
+
+                peer.on('error', (err) => {
+                    if (err && err.type === 'unavailable-id') {
+                        // Room already has an active host! Automatically join it as a client instead!
+                        joinRoomByPeerId(peerId, roomName);
+                    } else {
+                        updateLobbyBanner(`❌ Lobby Error: ${err ? err.type : 'Connection failed'}`, '#ff004d', false);
+                    }
+                });
+            } catch (e) {
+                console.error("Lobby Host Error:", e);
+                showNoticeModal("MULTIPLAYER ERROR", "PeerJS is blocked or offline.");
+            }
+        }
+
+        function joinRoomByPeerId(targetPeerId, roomName) {
+            if (peer) {
+                try { peer.destroy(); } catch (e) {}
+                peer = null;
+            }
+            try {
+                game.isHost = false;
+                updateLobbyBanner(`⏳ Joining Room "<b>${roomName}</b>"...`, '#29adff', true);
+                peer = new Peer();
+                peer.on('open', () => {
+                    peerConn = peer.connect(targetPeerId);
+                    let connected = false;
+                    peerConn.on('open', () => {
+                        connected = true;
+                        activeLobbyRoom = { peerId: targetPeerId, roomName: roomName };
+                        setupConnection();
+                        updateLobbyBanner(`🟢 Joined Room "<b>${roomName}</b>"!`, '#00e436', true);
                     });
-                } catch(e) {
-                    console.error("PeerJS Error:", e);
+                    setTimeout(() => {
+                        if (!connected && !otherPlayer) {
+                            // No active host responded on this channel — promote self to Host of this channel!
+                            hostRoomByPeerId(targetPeerId, roomName, 'Co-Op Mining');
+                        }
+                    }, 3500);
+                });
+                peer.on('error', () => {
+                    // If target Peer ID is not currently hosted, become the host of that channel automatically!
+                    hostRoomByPeerId(targetPeerId, roomName, 'Co-Op Mining');
+                });
+            } catch (e) {
+                console.error("Lobby Join Error:", e);
+            }
+        }
+
+        function enterPublicChannel(channelId, channelName, channelTag) {
+            // Try hosting the public channel ID first; if already hosted ('unavailable-id'), PeerJS auto-joins the existing host!
+            hostRoomByPeerId(channelId, channelName, channelTag);
+        }
+
+        function createCustomLobbyRoom() {
+            const nameInput = document.getElementById('lobby-room-name-input');
+            const tagSelect = document.getElementById('lobby-room-tag-select');
+            const rawName = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : ((googleUser ? googleUser.name : 'Blacksmith') + "'s Room");
+            const tag = tagSelect ? tagSelect.value : 'Co-Op Mining';
+            const peerId = roomNameToPeerId(rawName);
+            hostRoomByPeerId(peerId, rawName, tag);
+        }
+
+        function joinCustomRoomByName() {
+            const nameInput = document.getElementById('lobby-room-name-input');
+            const rawName = nameInput ? nameInput.value.trim() : '';
+            if (!rawName) {
+                showNoticeModal("JOIN ROOM", "Type a Room Name in the box first, or click any Public Channel / Live Room in the list below!");
+                return;
+            }
+            const peerId = roomNameToPeerId(rawName);
+            joinRoomByPeerId(peerId, rawName);
+        }
+
+        function refreshLobbyRooms() {
+            const listEl = document.getElementById('lobby-room-list');
+            if (!listEl) return;
+            listEl.innerHTML = '';
+
+            const renderRoomList = (customRooms) => {
+                listEl.innerHTML = '';
+                if (customRooms.length > 0) {
+                    const hdr = document.createElement('div');
+                    hdr.style.cssText = 'font-size:0.62rem; color:#00e436; font-weight:bold; margin:2px 0 4px 0;';
+                    hdr.innerText = '🔥 ACTIVE PLAYER-CREATED ROOMS:';
+                    listEl.appendChild(hdr);
+
+                    customRooms.forEach(rm => {
+                        const isMine = activeLobbyRoom && activeLobbyRoom.peerId === rm.peerId;
+                        const card = document.createElement('div');
+                        card.className = 'lobby-room-card';
+                        card.style.borderColor = isMine ? '#00e436' : '#29adff';
+                        card.innerHTML = `
+                            <div>
+                                <b style="color:#fff; font-size:0.78rem;">🏠 ${rm.roomName}</b>
+                                <span class="lobby-badge" style="background:#83769c; color:#fff; margin-left:4px;">${rm.tag || 'Co-Op'}</span><br>
+                                <span style="font-size:0.62rem; color:#aaa;">Host: <b style="color:#ffec27;">${rm.hostName || 'Player'}</b> | Zone: ${rm.map || 'OUTDOOR'}</span>
+                            </div>
+                            <button style="width:auto; padding:5px 12px; margin:0; background:${isMine ? '#5f574f' : '#00e436'}; color:white; font-size:0.7rem;">${isMine ? 'ACTIVE' : '🚀 JOIN'}</button>
+                        `;
+                        if (!isMine) {
+                            card.querySelector('button').onclick = () => joinRoomByPeerId(rm.peerId, rm.roomName);
+                        }
+                        listEl.appendChild(card);
+                    });
                 }
-            });
+
+                const pubHdr = document.createElement('div');
+                pubHdr.style.cssText = 'font-size:0.62rem; color:#29adff; font-weight:bold; margin:6px 0 4px 0;';
+                pubHdr.innerText = '🌐 INSTANT PUBLIC CHANNELS (AUTO-MATCH WITH PLAYERS):';
+                listEl.appendChild(pubHdr);
+
+                PUBLIC_LOBBY_CHANNELS.forEach(ch => {
+                    const isCurrent = activeLobbyRoom && activeLobbyRoom.peerId === ch.id;
+                    const card = document.createElement('div');
+                    card.className = 'lobby-room-card';
+                    if (isCurrent) card.style.borderColor = '#00e436';
+                    card.innerHTML = `
+                        <div>
+                            <b style="color:${ch.color}; font-size:0.76rem;">${ch.name}</b>
+                            <span class="lobby-badge" style="background:#444449; color:#fff; margin-left:4px;">${ch.tag}</span><br>
+                            <span style="font-size:0.6rem; color:#aaa;">1-Click Auto-Join (Hosts if empty, joins if active)</span>
+                        </div>
+                        <button style="width:auto; padding:5px 10px; margin:0; background:${isCurrent ? '#00e436' : '#29adff'}; color:white; font-size:0.68rem;">${isCurrent ? 'CONNECTED' : '⚡ ENTER'}</button>
+                    `;
+                    if (!isCurrent) {
+                        card.querySelector('button').onclick = () => enterPublicChannel(ch.id, ch.name, ch.tag);
+                    }
+                    listEl.appendChild(card);
+                });
+            };
+
+            let localRooms = [];
+            try {
+                localRooms = JSON.parse(localStorage.getItem('masterBlacksmith_LobbyRooms') || '[]').filter(r => Date.now() - r.updatedAt < 120000);
+            } catch (e) {}
+
+            if (firebaseDb) {
+                firebaseDb.collection('blacksmith_lobbies').limit(15).get().then((snap) => {
+                    const cloudRooms = [];
+                    snap.forEach(doc => {
+                        const d = doc.data();
+                        if (d && d.peerId && (Date.now() - (d.updatedAt || 0) < 180000)) {
+                            cloudRooms.push(d);
+                        }
+                    });
+                    const mergedMap = {};
+                    localRooms.forEach(r => mergedMap[r.peerId] = r);
+                    cloudRooms.forEach(r => mergedMap[r.peerId] = r);
+                    renderRoomList(Object.values(mergedMap));
+                }).catch(() => {
+                    renderRoomList(localRooms);
+                });
+            } else {
+                renderRoomList(localRooms);
+            }
+        }
+
+        function hostMultiplayer() {
+            openLobbyMenu();
+        }
+
+        function joinMultiplayer() {
+            openLobbyMenu();
         }
 
         function setupConnection() {
